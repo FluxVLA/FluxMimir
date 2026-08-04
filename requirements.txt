@@ -1,0 +1,5 @@
+# Full FluxMimir runtime dependency set.
+-r requirements-base.txt
+-r requirements-conversion.txt
+-r requirements-vision.txt
+-r requirements-api.txt

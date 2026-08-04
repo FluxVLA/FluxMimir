@@ -1,0 +1,6 @@
+# HDF5 inspection and canonical columnar dataset conversion.
+h5py>=3.10,<4
+pyarrow>=15
+av>=14,<17
+opencv-python-headless>=4.10,<5
+tqdm>=4.66,<5

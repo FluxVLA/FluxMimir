@@ -1,0 +1,73 @@
+source_root = ('{{$FLUXMIMIR_ANNOTATION_SOURCE_ROOT:'
+               'datasets/canonical_input}}')
+output_root = ('{{$FLUXMIMIR_ANNOTATION_OUTPUT_ROOT:'
+               'work_dirs/datasets/annotated_release}}')
+
+pipeline = dict(
+    kind='annotation',
+    runner=dict(
+        type='PipelineRunner',
+        work_dir='work_dirs/annotation/canonical',
+        resume=True,
+        overwrite=False,
+        idempotency_key='source_fingerprint+schema+prompt+model',
+    ),
+    source=dict(
+        type='CanonicalDatasetSource',
+        root=source_root,
+        expected_schema_id='agilex_aloha_unified',
+        expected_schema_version='1.1.0',
+    ),
+    stages=[
+        dict(
+            type='SampleAnnotationClips',
+            clip_duration_s=[1.5, 3.0],
+            frames_per_clip=4,
+            reject_static_clips=True,
+        ),
+        dict(
+            type='AnnotateTaskAndSubtasks',
+            schema_id='fluxmimir.task_subtask.v1',
+            provider=dict(
+                type='OpenAICompatibleAnnotationProvider',
+                api_key_env='ANNOTATION_API_KEY',
+                base_url_env='ANNOTATION_BASE_URL',
+                model_env='ANNOTATION_MODEL',
+                timeout_s=120,
+                max_retries=5,
+                rate_limit=True,
+                record_usage=True,
+            ),
+            prompt_version='task_subtask_v1',
+            require_json_schema=True,
+        ),
+        dict(
+            type='AnnotateEmbodiedChainOfThought',
+            schema_id='fluxmimir.ecot.v1',
+            privileged_context=dict(
+                use_history_memory_summary=True,
+                future_preview_frames=6,
+                use_coarse_progress=True,
+                exclude_from_training_inputs=True,
+            ),
+        ),
+        dict(
+            type='RouteAmbiguousAnnotations',
+            strategy='review_or_multi_model_vote',
+            confidence_below=0.7,
+        ),
+    ],
+    writer=dict(
+        type='CanonicalAnnotationReleaseWriter',
+        root=output_root,
+        update_mode='new_minor_release',
+        in_place=False,
+        store_raw_response_by_reference=True,
+    ),
+    validators=[
+        dict(type='AnnotationJSONSchemaValidator'),
+        dict(type='TaskSubtaskTemporalValidator'),
+        dict(type='AnnotationProvenanceValidator'),
+        dict(type='SecretLeakValidator'),
+    ],
+)

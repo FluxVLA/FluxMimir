@@ -1,0 +1,3 @@
+# Image and mask processing without GUI runtime dependencies.
+opencv-python-headless>=4.10,<5
+Pillow>=10,<13
