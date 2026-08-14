@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from abc import ABC
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,11 +11,10 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.conversion import EpisodeRecord, masked_statistics
-from fluxmimir.embodiments import (EMBODIMENT_DESCRIPTION, EMBODIMENT_ID,
-                                   SOURCE_CAMERAS)
+from fluxmimir.embodiments import (SOURCE_CAMERAS, AgileXAlohaAdapter,
+                                   BaseEmbodimentAdapter)
 from fluxmimir.engines.utils import WRITERS
-from fluxmimir.schemas import (LAYOUT_ID, PARQUET_COLUMNS, SCHEMA_ID,
-                               SCHEMA_VERSION, TARGET_SOURCE, UNIFIED_DIM)
+from fluxmimir.schemas import PARQUET_COLUMNS, TARGET_SOURCE, UNIFIED_DIM
 from fluxmimir.structures import ArtifactRecord, PipelineContext, StageResult
 
 from .base import BaseWriter
@@ -72,10 +72,11 @@ def _fixed_tensor(values: np.ndarray, value_type: Any) -> Any:
     return result
 
 
-def _unified_layout() -> dict[str, Any]:
+def _unified_layout(layout_id: str, gripper_unit: str,
+                    profile: str) -> dict[str, Any]:
     return {
         'layout_id':
-        LAYOUT_ID,
+        layout_id,
         'dimension':
         UNIFIED_DIM,
         'range_convention':
@@ -97,7 +98,7 @@ def _unified_layout() -> dict[str, Any]:
             {
                 'range': [28, 30],
                 'semantic': 'dual_gripper_position',
-                'unit': 'm',
+                'unit': gripper_unit,
             },
             {
                 'range': [30, 62],
@@ -124,10 +125,10 @@ def _unified_layout() -> dict[str, Any]:
                 'semantic': 'reserved'
             },
         ],
-        'aloha_observation_active_ranges': [[0, 6], [7, 13], [28, 30]],
-        'aloha_optional_eepose_range': [14, 28],
-        'aloha_target_active_ranges': [[0, 6], [7, 13], [28, 30]],
-        'aloha_reconstruction': {
+        f'{profile}_observation_active_ranges': [[0, 6], [7, 13], [28, 30]],
+        f'{profile}_optional_eepose_range': [14, 28],
+        f'{profile}_target_active_ranges': [[0, 6], [7, 13], [28, 30]],
+        f'{profile}_reconstruction': {
             'qpose': ('unified[0:6] + unified[28] + unified[7:13] + '
                       'unified[29]'),
             'eepose':
@@ -152,6 +153,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         chunks_size: int = 1000,
         publish_manifest: bool = True,
         in_place: bool = False,
+        embodiment: BaseEmbodimentAdapter | None = None,
     ) -> None:
         if chunks_size < 1:
             raise ValueError('chunks_size must be positive')
@@ -161,9 +163,17 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.chunks_size = int(chunks_size)
         self.publish_manifest = bool(publish_manifest)
         self.in_place = bool(in_place)
+        self.embodiment = embodiment or AgileXAlohaAdapter()
+        self.schema_id = self.embodiment.schema_id
+        self.schema_version = self.embodiment.schema_version
+        self.layout_id = self.embodiment.layout_id
+        self.embodiment_id = self.embodiment.embodiment_id
+        self.embodiment_description = self.embodiment.embodiment_description
+        self.robot_type = self.embodiment.robot_type
         self.context: PipelineContext | None = None
         self.episodes: list[dict[str, Any]] = []
         self.episode_stats: list[dict[str, Any]] = []
+        self.tasks: dict[int, dict[str, Any]] = {}
         self.video_features: dict[str, dict[str, Any]] = {}
         self.video_count = 0
         self.warnings: list[str] = []
@@ -333,6 +343,27 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 temporary.unlink()
         return height, width
 
+    @staticmethod
+    def _copy_video(path: Path, reader: Any,
+                    spec: Mapping[str, Any]) -> tuple[int, int, str]:
+        source = Path(getattr(reader, 'path', ''))
+        if not source.is_file():
+            raise ValueError('copy video mode requires a source file path')
+        actual_frames = int(getattr(reader, 'actual_frame_count', 0))
+        if (spec['frame_count_must_match'] and actual_frames
+                and actual_frames != len(reader)):
+            raise ValueError(
+                f'{source}: {actual_frames} frames != {len(reader)} rows')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(path.name + '.tmp')
+        try:
+            shutil.copy2(source, temporary)
+            temporary.replace(path)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+        return (int(reader.height), int(reader.width), str(reader.codec))
+
     def write_episode(self, episode: EpisodeRecord,
                       result: StageResult) -> tuple[ArtifactRecord, ...]:
         if self.context is None:
@@ -369,16 +400,25 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                         f'{episode.ref.source_uri}: missing {camera}')
                 video_path = self._video_path(episode_index, camera)
                 if not video_path.exists():
-                    height, width = self._encode_video(video_path,
-                                                       episode.media[camera],
-                                                       video_spec)
+                    if video_spec.get('mode', 'encode') == 'copy':
+                        height, width, codec = self._copy_video(
+                            video_path, episode.media[camera], video_spec)
+                    else:
+                        height, width = self._encode_video(
+                            video_path, episode.media[camera], video_spec)
+                        codec = str(video_spec['codec'])
                 elif resume:
-                    shape = getattr(episode.media[camera], 'shape', ())
+                    reader = episode.media[camera]
+                    shape = getattr(reader, 'shape', ())
                     if len(shape) >= 3:
                         height, width = int(shape[-3]), int(shape[-2])
                     else:
-                        frame = episode.media[camera].read_frame(0)
+                        frame = reader.read_frame(0)
                         height, width = frame.shape[:2]
+                    codec = (
+                        str(getattr(reader, 'codec', 'source'))
+                        if video_spec.get('mode') == 'copy' else str(
+                            video_spec['codec']))
                 else:
                     raise FileExistsError(video_path)
                 key = f'observation.images.{camera}'
@@ -389,7 +429,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                     'info': {
                         'video.height': height,
                         'video.width': width,
-                        'video.codec': video_spec['codec'],
+                        'video.codec': codec,
                         'video.pix_fmt': 'yuv420p',
                         'video.is_depth_map': False,
                         'video.fps': int(video_spec['fps']),
@@ -423,6 +463,23 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 masked_statistics(value['target.unified_107d'],
                                   value['target.unified_107d_mask']),
             }
+        task_index = int(episode.metadata.get('task_index', 0))
+        task_text = episode.metadata.get('task')
+        if task_text:
+            task_record = {
+                'task_index': task_index,
+                'task_id': f'task_{task_index:02d}_source',
+                'task': str(task_text),
+                'language': 'en',
+                'placeholder_status': 'source_provided',
+                'annotation_provenance': {
+                    'source': 'source_dataset_task_metadata'
+                },
+            }
+            existing = self.tasks.get(task_index)
+            if existing is not None and existing != task_record:
+                raise ValueError(f'conflicting task metadata: {task_index}')
+            self.tasks[task_index] = task_record
         self.episodes.append({
             'episode_index':
             episode_index,
@@ -433,11 +490,11 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'source_episode_identity':
             episode.metadata.get('relative_path'),
             'task_index':
-            0,
+            task_index,
             'length':
             episode.length,
             'data_source':
-            'hdf5',
+            episode.metadata.get('data_source', 'hdf5'),
             'outcome':
             None,
             'outcome_status':
@@ -452,14 +509,13 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.warnings.extend(result.warnings)
         return tuple(artifacts)
 
-    @staticmethod
-    def _features(video_features: Mapping[str, Any]) -> dict[str, Any]:
+    def _features(self, video_features: Mapping[str, Any]) -> dict[str, Any]:
         features = {
             'observation.unified_107d': {
                 'dtype': 'float32',
                 'shape': [107],
                 'names': None,
-                'layout_id': LAYOUT_ID,
+                'layout_id': self.layout_id,
             },
             'observation.unified_107d_mask': {
                 'dtype': 'bool',
@@ -480,7 +536,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 'dtype': 'float32',
                 'shape': [107],
                 'names': None,
-                'layout_id': LAYOUT_ID,
+                'layout_id': self.layout_id,
             },
             'target.unified_107d_mask': {
                 'dtype': 'bool',
@@ -531,13 +587,13 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             for item in episodes
         }
         fps = int(metadata.get('fps', 30))
-        return {
+        info = {
             'codebase_version':
             'v2.1',
             'schema_id':
-            SCHEMA_ID,
+            self.schema_id,
             'schema_version':
-            SCHEMA_VERSION,
+            self.schema_version,
             'dataset_id':
             self.dataset_id,
             'dataset_version':
@@ -548,27 +604,23 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'meta/artifacts.sha256.json',
             'training_ready':
             False,
-            'training_readiness_blockers': [
-                'raw action semantics/provenance are unconfirmed',
-                'calibrated ego2cam is unavailable',
-                'hardware timestamps are unavailable for sampled source data',
-                'episode-level task and frame subtasks are unavailable',
-            ],
+            'training_readiness_blockers':
+            list(self.embodiment.training_readiness_blockers),
             'warning':
             ('Robot observations are real source artifacts. Missing fields '
              'use masked placeholders; inspect field_validity.'),
             'robot_type':
-            'aloha',
+            self.robot_type,
             'embodiment_id':
-            EMBODIMENT_ID,
+            self.embodiment_id,
             'embodiment_description':
-            EMBODIMENT_DESCRIPTION,
+            self.embodiment_description,
             'total_episodes':
             episode_count,
             'total_frames':
             total_frames,
             'total_tasks':
-            1,
+            max(1, len(self.tasks)),
             'total_subtasks':
             1,
             'total_videos':
@@ -588,8 +640,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                            'episode_{episode_index:06d}.mp4'),
             'source_dataset': {
                 'root': metadata.get('source_root'),
-                'format': 'AgileX ALOHA episode HDF5',
-                'conversion': 'streaming HDF5 to canonical unified 107D',
+                'format': self.embodiment.source_format,
+                'conversion': self.embodiment.conversion_description,
             },
             'storage_policy': {
                 'one_parquet_per_episode':
@@ -598,7 +650,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 False,
                 'target_recipe': ('issued target when explicitly confirmed; '
                                   'otherwise masked placeholder'),
-                'video_materialization': ('direct_streaming_encode'
+                'video_materialization': (self.embodiment.video_materialization
                                           if self.video_count else 'disabled'),
             },
             'field_validity': {
@@ -620,7 +672,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 },
             },
             'unified_layout':
-            _unified_layout(),
+            _unified_layout(self.layout_id, self.embodiment.gripper_unit,
+                            self.embodiment.layout_profile),
             'ego2cam_contract': {
                 'column': 'observation.ego2cam',
                 'validity_column': 'observation.ego2cam_valid',
@@ -659,6 +712,10 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'features':
             self._features(self.video_features),
         }
+        action_provenance = getattr(self.embodiment, 'target_provenance', None)
+        if action_provenance:
+            info['target_provenance'] = action_provenance
+        return info
 
     def _write_manifest(self, info: Mapping[str, Any]) -> Path:
         artifacts: dict[str, dict[str, Any]] = {}
@@ -699,8 +756,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'manifest_version': '1.0.0',
             'synthetic': False,
             'schema': {
-                'id': SCHEMA_ID,
-                'version': SCHEMA_VERSION,
+                'id': self.schema_id,
+                'version': self.schema_version,
                 'rules_sha256': _canonical_sha256(rules),
             },
             'dataset': {
@@ -731,16 +788,19 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.episodes.sort(key=lambda item: item['episode_index'])
         self.episode_stats.sort(key=lambda item: item['episode_index'])
 
-        tasks = [{
-            'task_index': 0,
-            'task_id': 'task_00_unknown_episode_level_task',
-            'task': 'unknown episode-level task',
-            'language': 'en',
-            'placeholder_status': 'placeholder_unavailable',
-            'annotation_provenance': {
-                'source': 'unavailable_in_raw_hdf'
-            },
-        }]
+        tasks = sorted(
+            self.tasks.values(), key=lambda item: item['task_index'])
+        if not tasks:
+            tasks = [{
+                'task_index': 0,
+                'task_id': 'task_00_unknown_episode_level_task',
+                'task': 'unknown episode-level task',
+                'language': 'en',
+                'placeholder_status': 'placeholder_unavailable',
+                'annotation_provenance': {
+                    'source': self.embodiment.unavailable_annotation_source
+                },
+            }]
         subtasks = [{
             'subtask_index': 0,
             'subtask_id': 'subtask_00_unknown',
@@ -748,7 +808,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'language': 'en',
             'placeholder_status': 'placeholder_unavailable',
             'annotation_provenance': {
-                'source': 'unavailable_in_raw_hdf'
+                'source': self.embodiment.unavailable_annotation_source
             },
         }]
         info = self._build_info(metadata)
@@ -759,8 +819,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'dataset_id': self.dataset_id,
             'qualified_dataset_id':
             f'{self.dataset_id}@{self.dataset_version}',
-            'schema_id': SCHEMA_ID,
-            'schema_version': SCHEMA_VERSION,
+            'schema_id': self.schema_id,
+            'schema_version': self.schema_version,
             'versioning_scheme': 'Semantic Versioning 2.0.0',
             'release_status': 'converted_with_explicit_placeholders',
             'released_at_utc': released_at,

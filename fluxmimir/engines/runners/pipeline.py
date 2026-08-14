@@ -46,15 +46,21 @@ class PipelineRunner(BaseRunner):
         for stage in stages:
             if not isinstance(stage, Mapping):
                 self.stages.append(stage)
-            elif stage.get('type') == 'MapAlohaToCanonical107D':
+            elif stage.get('type') in {
+                    'MapAlohaToCanonical107D', 'MapReBotToCanonical107D'
+            }:
                 self.stages.append(
                     build_stage_from_cfg(
                         stage, default_args={'embodiment': self.embodiment}))
             else:
                 self.stages.append(build_stage_from_cfg(stage))
-        self.writer = (
-            build_writer_from_cfg(writer)
-            if isinstance(writer, Mapping) else writer)
+        if isinstance(writer, Mapping):
+            default_args = ({
+                'embodiment': self.embodiment
+            } if writer.get('type') == 'CanonicalDatasetWriter' else None)
+            self.writer = build_writer_from_cfg(writer, default_args)
+        else:
+            self.writer = writer
         self.validators = [(build_validator_from_cfg(item) if isinstance(
             item, Mapping) else item) for item in validators]
         self._context: PipelineContext | None = None

@@ -65,6 +65,22 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
     issued controller target expected by supervised policies.
     """
 
+    embodiment_id = EMBODIMENT_ID
+    embodiment_description = EMBODIMENT_DESCRIPTION
+    robot_type = 'aloha'
+    gripper_unit = 'm'
+    layout_profile = 'aloha'
+    source_format = 'AgileX ALOHA episode HDF5'
+    conversion_description = 'streaming HDF5 to canonical unified 107D'
+    video_materialization = 'direct_streaming_encode'
+    training_readiness_blockers = (
+        'raw action semantics/provenance are unconfirmed',
+        'calibrated ego2cam is unavailable',
+        'hardware timestamps are unavailable for sampled source data',
+        'episode-level task and frame subtasks are unavailable',
+    )
+    unavailable_annotation_source = 'unavailable_in_raw_hdf'
+
     def __init__(
         self,
         schema_id: str = SCHEMA_ID,

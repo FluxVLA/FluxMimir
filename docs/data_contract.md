@@ -215,3 +215,20 @@ validator 应输出结构化 blocker 列表，使“数据可浏览”和“可�
 statistics、artifact manifest 以及 schema/FK/video-count/stats/hash validator。
 当前不会生成 FK/eepose 或相机外参，不解释 depth，不调用自动标注 API，也不会
 在 action、时间和标定语义未确认时给出训练就绪认证。
+
+## 10. ReBot 双臂 profile
+
+ReBot B601 双臂数据使用相同的 12 个 Parquet 列和 107D slot range，但其
+夹爪 slot 表示电机转角而非米制开口量，因此使用独立的数据契约标识：
+
+- schema id: `rebot_dual_unified`
+- schema version: `1.0.0`
+- layout id: `rebot_dual_107_v1`
+- embodiment id: `rebot_b601_dual`
+- 夹爪 slot `[28,30)` 单位：`rad`
+- target source：`operator`
+
+具体映射和已确认的 target provenance 见
+[`conversion.md`](conversion.md)。只支持
+`agilex_aloha_unified` 的消费者必须拒绝 ReBot profile；维度同为 107D
+并不代表单位兼容。

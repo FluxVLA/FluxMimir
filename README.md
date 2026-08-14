@@ -5,10 +5,10 @@ turn raw robot recordings into versioned canonical datasets, derive
 ego-to-robot visual data, and produce auditable automated annotations for
 FluxVLA.
 
-> **Current status:** AgileX ALOHA HDF to canonical 107D Parquet conversion is
-> executable, including optional streaming MP4 encoding, metadata, masked
-> statistics, manifests, and release validation. Synthesis and annotation
-> backends remain scaffolded.
+> **Current status:** AgileX ALOHA HDF and ReBot dual LeRobot v3 conversions to
+> versioned canonical 107D Parquet profiles are executable, including MP4
+> materialization, metadata, masked statistics, manifests, and release
+> validation. Synthesis and annotation backends remain scaffolded.
 
 [中文说明](README_zh-CN.md)
 
@@ -16,6 +16,9 @@ FluxVLA.
 
 - Convert raw AgileX ALOHA HDF episodes into the fixed
   `agilex_aloha_unified@1.1.0` 107D Parquet/video/metadata contract.
+- Convert ReBot dual LeRobot v3 episodes into
+  `rebot_dual_unified@1.0.0`, preserving radian gripper angles and command
+  target provenance.
 - Build the Qwen-RobotManip-style ego-to-robot pipeline through replaceable
   retargeting, segmentation, inpainting, kinematics/rendering, depth, and
   compositing backends.
@@ -137,7 +140,7 @@ work_dirs/     ignored run artifacts
 
 - [Architecture and ownership](docs/architecture.md)
 - [Canonical 107D data contract](docs/data_contract.md)
-- [HDF conversion plan and audit](docs/conversion.md)
+- [Data conversion plan and audit](docs/conversion.md)
 - [Ego-to-robot synthesis plan](docs/synthesis.md)
 - [Automated annotation plan](docs/annotation.md)
 - [Secret and data security](docs/security.md)

@@ -1,4 +1,4 @@
-# HDF 到 canonical 数据集转换规划
+# Canonical 数据集转换规划
 
 > 状态：HDF→canonical 107D 主链路已实现。本文同时保留设计、审计事实和仍未解决的训练就绪 blocker；实现转换不等于原始语义已经确认。
 
@@ -246,3 +246,47 @@ validator 在重新打开磁盘文件后检查：
 仍不包括：未经确认就启用 raw action target、从 qpos 推断 eepose、生成 ego2cam、
 解释 uint8 depth、自动 annotation、宣称 `training_ready=true`，以及替换或删除
 已有 immutable release。
+
+## 10. ReBot dual LeRobot v3 转换
+
+`rebot_dual_unified@1.0.0` 将 ReBot B601 双臂 LeRobot v3 数据转换为
+canonical 107D。它使用独立 schema/layout，因为其夹爪值是电机转角（rad），
+不是 ALOHA 的米制开口量。
+
+已确认的来源语义：
+
+- 顺序为左臂六关节、左夹爪、右臂六关节、右夹爪。
+- `observation.state` 是 follower 关节位置反馈。
+- `action` 来自左右 `target_joint_state` ROS topic，是 driver 软限位裁剪前的
+  operator 遥操作目标位置；读取和拼接位置分别为
+  `rebot_ros_record.py:471` 和 `rebot_ros_record.py:528`。
+- 14 个值均使用 rad；夹爪约 `0` 为闭合，`-4.712389` 为最大张开。
+
+映射规则：
+
+```text
+unified[0:6]  <- values[0:6]
+unified[28]   <- values[6]
+unified[7:13] <- values[7:13]
+unified[29]   <- values[13]
+```
+
+相机名称映射为 `cam_front -> cam_high`、`cam_wrist_left ->
+cam_left_wrist`、`cam_wrist_right -> cam_right_wrist`。已有 MP4 原样复制，
+不重新编码，并校验视频帧数与 Parquet 行数。
+
+先转换一个 episode：
+
+```bash
+fluxmimir-convert \
+  configs/conversion/rebot_dual_lerobot_v3_to_canonical_107d.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/rebot_dual_smoke
+```
+
+全量转换时移除 `pipeline.source.max_episodes`。输入和输出路径可通过
+`FLUXMIMIR_RAW_ROOT`、`FLUXMIMIR_OUTPUT_ROOT` 覆盖。当前 release 仍为
+`training_ready=false`，因为缺少相机外参、硬件时钟来源和帧级 subtask；
+已确认的 action 语义不是 blocker。

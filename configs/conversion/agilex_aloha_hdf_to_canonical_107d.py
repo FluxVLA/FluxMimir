@@ -47,7 +47,7 @@ pipeline = dict(
         nominal_fps=30,
     ),
     stages=[
-        dict(type='ProbeHDF5Schema', scope='all_episodes'),
+        dict(type='ProbeSourceSchema', scope='all_episodes'),
         dict(type='MapAlohaToCanonical107D'),
         dict(
             type='EncodeEpisodeVideos',
