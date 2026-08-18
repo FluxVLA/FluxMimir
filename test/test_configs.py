@@ -49,4 +49,5 @@ def test_rebot_config_preserves_confirmed_target_semantics():
     assert (cfg.pipeline.embodiment.action_semantics ==
             'issued_joint_position_target')
     assert cfg.pipeline.embodiment.action_source == 'operator'
-    assert cfg.pipeline.stages[2].type == 'MaterializeEpisodeVideos'
+    assert cfg.pipeline.stages[2].type == 'EncodeEpisodeVideos'
+    assert cfg.pipeline.stages[2].mode == 'copy'

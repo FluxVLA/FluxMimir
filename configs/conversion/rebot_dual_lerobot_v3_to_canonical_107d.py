@@ -37,9 +37,11 @@ pipeline = dict(
         dict(type='ProbeSourceSchema'),
         dict(type='MapReBotToCanonical107D'),
         dict(
-            type='MaterializeEpisodeVideos',
+            type='EncodeEpisodeVideos',
+            codec='source',
             fps=30,
-            frame_count_must_match=True),
+            frame_count_must_match=True,
+            mode='copy'),
         dict(type='ComputeMaskedEpisodeStatistics'),
         dict(type='BuildCanonicalMetadata'),
     ],

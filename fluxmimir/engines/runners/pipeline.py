@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -7,9 +8,9 @@ from typing import Any
 
 from fluxmimir.structures import PipelineContext, StageResult
 
-from ..utils import (RUNNERS, build_embodiment_from_cfg, build_source_from_cfg,
-                     build_stage_from_cfg, build_validator_from_cfg,
-                     build_writer_from_cfg)
+from ..utils import (RUNNERS, STAGES, WRITERS, build_embodiment_from_cfg,
+                     build_source_from_cfg, build_stage_from_cfg,
+                     build_validator_from_cfg, build_writer_from_cfg)
 from .base import BaseRunner
 
 
@@ -46,19 +47,32 @@ class PipelineRunner(BaseRunner):
         for stage in stages:
             if not isinstance(stage, Mapping):
                 self.stages.append(stage)
-            elif stage.get('type') in {
-                    'MapAlohaToCanonical107D', 'MapReBotToCanonical107D'
-            }:
-                self.stages.append(
-                    build_stage_from_cfg(
-                        stage, default_args={'embodiment': self.embodiment}))
             else:
-                self.stages.append(build_stage_from_cfg(stage))
+                stage_type = stage.get('type')
+                stage_class = (
+                    STAGES.get(stage_type)
+                    if isinstance(stage_type, str) else stage_type)
+                default_args = None
+                if stage_class is not None:
+                    parameters = inspect.signature(
+                        stage_class.__init__).parameters
+                    if 'embodiment' in parameters:
+                        default_args = {'embodiment': self.embodiment}
+                self.stages.append(
+                    build_stage_from_cfg(stage, default_args=default_args))
         if isinstance(writer, Mapping):
-            default_args = ({
-                'embodiment': self.embodiment
-            } if writer.get('type') == 'CanonicalDatasetWriter' else None)
-            self.writer = build_writer_from_cfg(writer, default_args)
+            writer_type = writer.get('type')
+            writer_class = (
+                WRITERS.get(writer_type)
+                if isinstance(writer_type, str) else writer_type)
+            default_args = None
+            if writer_class is not None:
+                parameters = inspect.signature(
+                    writer_class.__init__).parameters
+                if 'embodiment' in parameters:
+                    default_args = {'embodiment': self.embodiment}
+            self.writer = build_writer_from_cfg(
+                writer, default_args=default_args)
         else:
             self.writer = writer
         self.validators = [(build_validator_from_cfg(item) if isinstance(

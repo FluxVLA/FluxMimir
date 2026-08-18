@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Iterator, Mapping
 
@@ -81,12 +82,13 @@ class LeRobotV3Source(BaseSource):
         if max_episodes is not None and max_episodes < 1:
             raise ValueError('max_episodes must be positive')
         self.max_episodes = max_episodes
-        info_path = self.root / 'meta/info.json'
-        tasks_path = self.root / 'meta/tasks.parquet'
-        if not info_path.is_file() or not tasks_path.is_file():
+        info_path = os.path.join(self.root, 'meta', 'info.json')
+        tasks_path = os.path.join(self.root, 'meta', 'tasks.parquet')
+        if not os.path.isfile(info_path) or not os.path.isfile(tasks_path):
             raise FileNotFoundError(
                 'LeRobot v3 info/tasks metadata is missing')
-        self.info = json.loads(info_path.read_text(encoding='utf-8'))
+        with open(info_path, encoding='utf-8') as stream:
+            self.info = json.load(stream)
         if self.info.get('codebase_version') != 'v3.0':
             raise ValueError('LeRobotV3Source requires codebase_version=v3.0')
         pq = _require_pyarrow()

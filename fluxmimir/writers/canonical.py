@@ -11,8 +11,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.conversion import EpisodeRecord, masked_statistics
-from fluxmimir.embodiments import (SOURCE_CAMERAS, AgileXAlohaAdapter,
-                                   BaseEmbodimentAdapter)
+from fluxmimir.embodiments import SOURCE_CAMERAS, BaseEmbodimentAdapter
 from fluxmimir.engines.utils import WRITERS
 from fluxmimir.schemas import PARQUET_COLUMNS, TARGET_SOURCE, UNIFIED_DIM
 from fluxmimir.structures import ArtifactRecord, PipelineContext, StageResult
@@ -150,10 +149,10 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         root: str | Path,
         dataset_id: str,
         dataset_version: str,
+        embodiment: BaseEmbodimentAdapter,
         chunks_size: int = 1000,
         publish_manifest: bool = True,
         in_place: bool = False,
-        embodiment: BaseEmbodimentAdapter | None = None,
     ) -> None:
         if chunks_size < 1:
             raise ValueError('chunks_size must be positive')
@@ -163,7 +162,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.chunks_size = int(chunks_size)
         self.publish_manifest = bool(publish_manifest)
         self.in_place = bool(in_place)
-        self.embodiment = embodiment or AgileXAlohaAdapter()
+        self.embodiment = embodiment
         self.schema_id = self.embodiment.schema_id
         self.schema_version = self.embodiment.schema_version
         self.layout_id = self.embodiment.layout_id

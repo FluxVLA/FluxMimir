@@ -165,7 +165,10 @@ class EncodeEpisodeVideos(BaseStage):
                  frame_count_must_match: bool = True,
                  enabled: bool = True,
                  crf: int = 23,
-                 gop_size: int = 30) -> None:
+                 gop_size: int = 30,
+                 mode: str = 'encode') -> None:
+        if mode not in {'encode', 'copy'}:
+            raise ValueError(f'unsupported video mode: {mode}')
         self.spec = {
             'enabled': bool(enabled),
             'codec': codec,
@@ -173,6 +176,7 @@ class EncodeEpisodeVideos(BaseStage):
             'frame_count_must_match': bool(frame_count_must_match),
             'crf': int(crf),
             'gop_size': int(gop_size),
+            'mode': mode,
         }
 
     def process(self, episode: Any, context: PipelineContext) -> StageResult:
@@ -182,22 +186,6 @@ class EncodeEpisodeVideos(BaseStage):
         value = dict(episode)
         value['_video_encoding'] = dict(self.spec)
         return StageResult(value=value)
-
-
-@STAGES.register_module()
-class MaterializeEpisodeVideos(EncodeEpisodeVideos):
-    """Copy already encoded source videos into the canonical release."""
-
-    def __init__(self,
-                 fps: int = 30,
-                 frame_count_must_match: bool = True,
-                 enabled: bool = True) -> None:
-        super().__init__(
-            codec='source',
-            fps=fps,
-            frame_count_must_match=frame_count_must_match,
-            enabled=enabled)
-        self.spec['mode'] = 'copy'
 
 
 @STAGES.register_module()

@@ -103,7 +103,7 @@ def test_rebot_lerobot_v3_to_canonical_end_to_end(tmp_path):
             stages=[
                 dict(type='ProbeSourceSchema'),
                 dict(type='MapReBotToCanonical107D'),
-                dict(type='MaterializeEpisodeVideos'),
+                dict(type='EncodeEpisodeVideos', codec='source', mode='copy'),
                 dict(type='ComputeMaskedEpisodeStatistics'),
                 dict(type='BuildCanonicalMetadata'),
             ],
