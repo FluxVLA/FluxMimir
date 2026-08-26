@@ -14,6 +14,10 @@ CONFIGS = {
     'validation': REPO_ROOT / 'configs' / 'validation' / 'canonical_107d.py',
 }
 
+REBOT_CONFIG = (
+    REPO_ROOT / 'configs' / 'conversion' /
+    'rebot_dual_lerobot_v3_to_canonical_107d.py')
+
 
 @pytest.mark.parametrize('expected_kind,config_path', CONFIGS.items())
 def test_example_config_has_common_pipeline_shape(expected_kind, config_path):
@@ -35,3 +39,15 @@ def test_annotation_config_stores_credential_reference_only():
     assert 'api_key' not in provider
     assert 'app_secret' not in provider
     assert 'access_token' not in provider
+
+
+def test_rebot_config_preserves_confirmed_target_semantics():
+    cfg = Config.fromfile(REBOT_CONFIG)
+
+    assert cfg.pipeline.source.type == 'LeRobotV3Source'
+    assert cfg.pipeline.embodiment.type == 'ReBotDualAdapter'
+    assert (cfg.pipeline.embodiment.action_semantics ==
+            'issued_joint_position_target')
+    assert cfg.pipeline.embodiment.action_source == 'operator'
+    assert cfg.pipeline.stages[2].type == 'EncodeEpisodeVideos'
+    assert cfg.pipeline.stages[2].mode == 'copy'

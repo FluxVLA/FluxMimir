@@ -58,7 +58,7 @@ def test_hdf_to_canonical_parquet_end_to_end(tmp_path):
             embodiment=dict(
                 type='AgileXAlohaAdapter', action_semantics='unknown'),
             stages=[
-                dict(type='ProbeHDF5Schema'),
+                dict(type='ProbeSourceSchema'),
                 dict(type='MapAlohaToCanonical107D'),
                 dict(type='EncodeEpisodeVideos', enabled=True, codec='h264'),
                 dict(type='ComputeMaskedEpisodeStatistics'),

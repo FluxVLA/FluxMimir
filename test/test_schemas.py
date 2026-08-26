@@ -1,5 +1,6 @@
 from fluxmimir.schemas import (CANONICAL_107D_SCHEMA, LAYOUT_RANGES,
-                               PARQUET_COLUMNS, UNIFIED_DIM,
+                               PARQUET_COLUMNS, REBOT_DUAL_107D_SCHEMA,
+                               REBOT_DUAL_LAYOUT_ID, UNIFIED_DIM,
                                aloha_qpose_indices)
 
 
@@ -24,3 +25,11 @@ def test_aloha_qpose_view_uses_gripper_slots_not_reserved_joints():
     assert indices == (0, 1, 2, 3, 4, 5, 28, 7, 8, 9, 10, 11, 12, 29)
     assert 6 not in indices
     assert 13 not in indices
+
+
+def test_rebot_schema_has_distinct_versioned_layout():
+    assert REBOT_DUAL_107D_SCHEMA.schema_id == 'rebot_dual_unified'
+    assert REBOT_DUAL_107D_SCHEMA.layout_id == REBOT_DUAL_LAYOUT_ID
+    assert tuple(feature.name
+                 for feature in REBOT_DUAL_107D_SCHEMA.features) == (
+                     PARQUET_COLUMNS)

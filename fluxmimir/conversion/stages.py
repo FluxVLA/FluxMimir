@@ -4,7 +4,8 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from fluxmimir.embodiments import AgileXAlohaAdapter, BaseEmbodimentAdapter
+from fluxmimir.embodiments import (AgileXAlohaAdapter, BaseEmbodimentAdapter,
+                                   ReBotDualAdapter)
 from fluxmimir.engines.stages import BaseStage
 from fluxmimir.engines.utils import STAGES
 from fluxmimir.schemas import UNIFIED_DIM
@@ -55,7 +56,7 @@ def masked_statistics(values: np.ndarray,
 
 
 @STAGES.register_module()
-class ProbeHDF5Schema(BaseStage):
+class ProbeSourceSchema(BaseStage):
 
     def __init__(self, scope: str = 'all_episodes') -> None:
         self.scope = scope
@@ -63,7 +64,7 @@ class ProbeHDF5Schema(BaseStage):
     def process(self, episode: Any, context: PipelineContext) -> StageResult:
         del context
         if not isinstance(episode, EpisodeRecord):
-            raise TypeError('ProbeHDF5Schema expects EpisodeRecord')
+            raise TypeError('ProbeSourceSchema expects EpisodeRecord')
         fingerprint = episode.metadata.get('schema_fingerprint')
         if not fingerprint:
             raise ValueError(
@@ -94,7 +95,8 @@ class MapAlohaToCanonical107D(BaseEpisodeMapper):
         if 'timestamp' in episode.fields:
             timestamp = np.asarray(
                 episode.fields['timestamp'], dtype=np.float32).reshape(-1)
-            timestamp_source = 'source_hdf'
+            source_kind = episode.metadata.get('data_source', 'hdf')
+            timestamp_source = f'source_{source_kind}'
         else:
             fps = int(getattr(self.embodiment, 'nominal_fps', 30))
             timestamp = (frame_index / fps).astype(np.float32)
@@ -146,6 +148,15 @@ class MapAlohaToCanonical107D(BaseEpisodeMapper):
 
 
 @STAGES.register_module()
+class MapReBotToCanonical107D(MapAlohaToCanonical107D):
+    """Map ReBot dual-arm records with the source-neutral 107D machinery."""
+
+    def __init__(self,
+                 embodiment: BaseEmbodimentAdapter | None = None) -> None:
+        super().__init__(embodiment=embodiment or ReBotDualAdapter())
+
+
+@STAGES.register_module()
 class EncodeEpisodeVideos(BaseStage):
 
     def __init__(self,
@@ -154,7 +165,10 @@ class EncodeEpisodeVideos(BaseStage):
                  frame_count_must_match: bool = True,
                  enabled: bool = True,
                  crf: int = 23,
-                 gop_size: int = 30) -> None:
+                 gop_size: int = 30,
+                 mode: str = 'encode') -> None:
+        if mode not in {'encode', 'copy'}:
+            raise ValueError(f'unsupported video mode: {mode}')
         self.spec = {
             'enabled': bool(enabled),
             'codec': codec,
@@ -162,6 +176,7 @@ class EncodeEpisodeVideos(BaseStage):
             'frame_count_must_match': bool(frame_count_must_match),
             'crf': int(crf),
             'gop_size': int(gop_size),
+            'mode': mode,
         }
 
     def process(self, episode: Any, context: PipelineContext) -> StageResult:

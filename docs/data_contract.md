@@ -1,33 +1,43 @@
-# FluxMimir 数据契约
+# FluxMimir Data Contract
 
-> 状态：契约及 HDF→Parquet writer 已实现；raw 数据中未确认的语义仍通过 mask、placeholder 和 `training_ready=false` 表达。
+> Status: the contract and HDF-to-Parquet writer are implemented. Semantics
+> that remain unverified in the raw data are represented through masks,
+> placeholders, and `training_ready=false`.
 
-规范来源为飞书文档 [Data Structure v1](https://cwjgfm21di.feishu.cn/wiki/ORYMwWwYqiJswJkeVhqcqndWnth)，并以本机只读样例
-`/mnt/data/cpfs/mnt/data/liyinhao/datasets/RealRobot_AgileX_aloha_lerobot/example_canonical_107d_v3_1`
-交叉核对。访问凭据不是数据契约的一部分，也不得进入仓库或发布物。
+The specification is based on the Feishu document
+[Data Structure v1](https://cwjgfm21di.feishu.cn/wiki/ORYMwWwYqiJswJkeVhqcqndWnth)
+and cross-checked against the local read-only example at
+`/mnt/data/cpfs/mnt/data/liyinhao/datasets/RealRobot_AgileX_aloha_lerobot/example_canonical_107d_v3_1`.
+Access credentials are not part of the data contract and must not enter the
+repository or a release.
 
-## 1. 契约身份与兼容性
+## 1. Contract identity and compatibility
 
-FluxMimir 首期目标契约为：
+The initial FluxMimir target contract is:
 
-- schema id：`agilex_aloha_unified`
-- schema version：`1.1.0`
-- canonical layout：`lingbot_vla2_dexhand32x2_107_v1`
-- LeRobot codebase version：`v2.1`
-- embodiment id：`agilex_aloha`
-- embodiment description：`AgileX ALOHA dual-arm robot`
+- schema id: `agilex_aloha_unified`
+- schema version: `1.1.0`
+- canonical layout: `lingbot_vla2_dexhand32x2_107_v1`
+- LeRobot codebase version: `v2.1`
+- embodiment id: `agilex_aloha`
+- embodiment description: `AgileX ALOHA dual-arm robot`
 
-schema 版本与 dataset 版本必须独立记录。消费者必须同时校验 `schema_id`、`schema_version` 和 dataset version，不能依据目录名猜测格式。
+The schema version and dataset version must be recorded independently.
+Consumers must validate `schema_id`, `schema_version`, and the dataset version
+instead of inferring the format from directory names.
 
-版本遵循 Semantic Versioning：
+Versions follow Semantic Versioning:
 
-- major：破坏列、layout、episode 身份、split、task 或内容语义的兼容性。
-- minor：在不改变已有样本语义的前提下增加 episode、标注或 modality。
-- patch：修正 metadata 或样本，但不改变 schema 契约。
+- major: breaks compatibility of columns, layout, episode identity, splits,
+  tasks, or content semantics.
+- minor: adds episodes, annotations, or modalities without changing existing
+  sample semantics.
+- patch: corrects metadata or samples without changing the schema contract.
 
-已发布的数据集版本应标记为 immutable。任何内容变化都产生新版本，不原地改写发布物。
+Published dataset versions must be immutable. Any content change creates a
+new version rather than modifying an existing release in place.
 
-## 2. 目录布局
+## 2. Directory layout
 
 ```text
 <dataset_root>/
@@ -48,52 +58,59 @@ schema 版本与 dataset 版本必须独立记录。消费者必须同时校验 
     └── episodes_stats.jsonl
 ```
 
-每个 episode 对应一个 Parquet。RGB 视频独立存放，不把视频字节或逐帧路径重复写入 Parquet。视频 key 的顺序固定为：
+Each episode has one Parquet file. RGB videos are stored separately; video
+bytes and per-frame paths are not duplicated in Parquet. Video keys use this
+fixed order:
 
 1. `observation.images.cam_high`
 2. `observation.images.cam_left_wrist`
 3. `observation.images.cam_right_wrist`
 
-## 3. Parquet 物理 schema
+## 3. Physical Parquet schema
 
-每个 episode 的 Parquet 必须严格包含以下 12 列，不允许 null：
+Each episode Parquet must contain exactly the following 12 non-null columns:
 
-| 列 | Arrow/逻辑类型 | 语义 |
+| Column | Arrow/logical type | Semantics |
 | --- | --- | --- |
 | `observation.unified_107d` | `float32[107]` | canonical robot observation |
-| `observation.unified_107d_mask` | `bool[107]` | observation 每维有效性 |
-| `observation.ego2cam` | `float32[3,4,4]` | 三路相机的外参 |
-| `observation.ego2cam_valid` | `bool[3]` | 每路外参有效性 |
+| `observation.unified_107d_mask` | `bool[107]` | per-dimension observation validity |
+| `observation.ego2cam` | `float32[3,4,4]` | extrinsics for three cameras |
+| `observation.ego2cam_valid` | `bool[3]` | per-camera extrinsic validity |
 | `target.unified_107d` | `float32[107]` | canonical issued target/action |
-| `target.unified_107d_mask` | `bool[107]` | target 每维有效性 |
-| `target.source` | `int8` | target 来源枚举 |
-| `timestamp` | `float32` | episode 内单调时间，单位为秒 |
-| `frame_index` | `int64` | episode 内从 0 开始的连续帧号 |
-| `episode_index` | `int64` | 数据集内 episode 外键 |
-| `index` | `int64` | 数据集内全局连续帧号 |
-| `subtask_index` | `int64` | `meta/subtasks.jsonl` 外键 |
+| `target.unified_107d_mask` | `bool[107]` | per-dimension target validity |
+| `target.source` | `int8` | target source enum |
+| `timestamp` | `float32` | monotonic time within the episode, in seconds |
+| `frame_index` | `int64` | contiguous frame number starting at zero |
+| `episode_index` | `int64` | episode foreign key within the dataset |
+| `index` | `int64` | global contiguous frame number within the dataset |
+| `subtask_index` | `int64` | foreign key into `meta/subtasks.jsonl` |
 
-方括号表示 Arrow nested fixed-size list，不是变长 list。物理列顺序也属于契约，writer 和 validator 应按上表固定。
+Square brackets denote Arrow nested fixed-size lists, not variable-length
+lists. Physical column order is also part of the contract and must follow the
+table above in both the writer and validator.
 
-视频 feature 记录在 `meta/info.json`，其 shape 采用 LeRobot 的 `[channels, height, width]`，例如 `[3,480,640]`；它们不是上述 12 个 Parquet 列的一部分。
+Video features are recorded in `meta/info.json`. Their shapes follow the
+LeRobot `[channels, height, width]` convention, for example `[3,480,640]`.
+They are not part of the 12 Parquet columns above.
 
 ## 4. Unified 107D layout
 
-所有 range 使用半开区间 `[start,end)`：
+All ranges use half-open intervals `[start,end)`:
 
-| Range | 维数 | 语义 | 约定 |
+| Range | Dimensions | Semantics | Convention |
 | --- | ---: | --- | --- |
-| `[0,14)` | 14 | 双臂关节位置 | rad；每臂 6 个当前关节槽位和 1 个 reserved joint 槽位 |
-| `[14,28)` | 14 | 双末端位姿 | 每臂 `x,y,z,qx,qy,qz,qw`；位置 m；四元数 `xyzw` |
-| `[28,30)` | 2 | 左右夹爪位置 | m |
-| `[30,62)` | 32 | 左灵巧手关节位置 | `left_hand_joint_00..31` |
-| `[62,94)` | 32 | 右灵巧手关节位置 | `right_hand_joint_00..31` |
-| `[94,98)` | 4 | 腰部位置 | embodiment adapter 定义具体名字和单位 |
-| `[98,100)` | 2 | 头部位置 | embodiment adapter 定义具体名字和单位 |
-| `[100,103)` | 3 | 移动底盘信号 | 未确认语义不得填充 |
-| `[103,107)` | 4 | reserved | 必须为 0 且 mask=false |
+| `[0,14)` | 14 | dual-arm joint positions | rad; six active joints and one reserved joint slot per arm |
+| `[14,28)` | 14 | dual end-effector poses | per arm: `x,y,z,qx,qy,qz,qw`; position in m; quaternion in `xyzw` order |
+| `[28,30)` | 2 | left and right gripper positions | m |
+| `[30,62)` | 32 | left dexterous-hand joint positions | `left_hand_joint_00..31` |
+| `[62,94)` | 32 | right dexterous-hand joint positions | `right_hand_joint_00..31` |
+| `[94,98)` | 4 | waist positions | names and units are defined by the embodiment adapter |
+| `[98,100)` | 2 | head positions | names and units are defined by the embodiment adapter |
+| `[100,103)` | 3 | mobile-base signals | must remain empty until semantics are confirmed |
+| `[103,107)` | 4 | reserved | must be zero with `mask=false` |
 
-ALOHA 的 14D `qpose` 约定为左臂 6D、左夹爪、右臂 6D、右夹爪时，映射为：
+For ALOHA, a 14D `qpose` ordered as left six arm joints, left gripper,
+right six arm joints, and right gripper maps as follows:
 
 ```text
 unified[0:6]  <- qpose[0:6]
@@ -102,42 +119,55 @@ unified[7:13] <- qpose[7:13]
 unified[29]   <- qpose[13]
 ```
 
-逆向解码为：
+The inverse view is:
 
 ```text
 qpose = unified[0:6] + unified[28] + unified[7:13] + unified[29]
 eepose = unified[14:28]
 ```
 
-只有确认了 raw joint order 后才能应用该映射。`unified[6]` 和 `unified[13]` 是 reserved joint 槽位，不能用夹爪值填充。
+This mapping may be applied only after the raw joint order is confirmed.
+`unified[6]` and `unified[13]` are reserved joint slots and must not contain
+gripper values.
 
-若 qpose 和 eepose 都真实可用，ALOHA observation 的有效 ranges 是 `[0,6)`、`[7,13)`、`[14,30)`。target 的常见有效 ranges 是 `[0,6)`、`[7,13)`、`[28,30)`，但仅在确认 raw action 是真实下发 target、顺序和单位一致后才可标记有效。
+When both qpose and eepose are genuinely available, valid ALOHA observation
+ranges are `[0,6)`, `[7,13)`, and `[14,30)`. Typical valid target ranges are
+`[0,6)`, `[7,13)`, and `[28,30)`, but they may be marked valid only after the
+raw action is confirmed to be the issued target with matching order and units.
 
-## 5. Mask、placeholder 与有效性
+## 5. Masks, placeholders, and validity
 
-缺失的 dense tensor 使用数值 0 占位，并同时使用显式 mask 标为无效：
+Missing dense tensors use numeric zero placeholders and explicit masks:
 
-- 不可用的 107D 维：值为 `0.0`，对应 `*_mask=false`。
-- 不可用的相机外参：4x4 矩阵为全 0，对应 camera 的 `ego2cam_valid=false`。
-- 全 0 外参不是单位变换，读取时必须先检查 validity。
-- 数值 0 本身不表示缺失；有效性只能由 mask/validity 判断。
-- 所有标为有效的浮点值必须 finite。
+- unavailable 107D dimensions use `0.0` with `*_mask=false`.
+- unavailable camera extrinsics use an all-zero 4x4 matrix with
+  `ego2cam_valid=false` for that camera.
+- an all-zero extrinsic is not an identity transform; consumers must check
+  validity first.
+- a numeric zero does not itself indicate missing data; only a mask or
+  validity field does.
+- all floating-point values marked valid must be finite.
 
-统计必须按 mask 逐维计算。`episodes_stats.jsonl` 中每个 107D feature 至少包含 `min`、`max`、`mean`、`std`、`q01`、`q99` 和 `count`；无效占位 0 不参与统计，完全无效的维度 `count=0`。
+Statistics must be computed per dimension using masks. Every 107D feature in
+`episodes_stats.jsonl` must include at least `min`, `max`, `mean`, `std`,
+`q01`, `q99`, and `count`. Invalid zero placeholders do not contribute, and a
+completely invalid dimension has `count=0`.
 
 ### 5.1 `ego2cam`
 
-- camera order：`cam_high`、`cam_left_wrist`、`cam_right_wrist`
-- shape：`[3,4,4]`
-- convention：`T_camera_from_ego`
-- equation：`p_camera = T_camera_from_ego @ p_ego`
-- ego frame：`base_link`
+- camera order: `cam_high`, `cam_left_wrist`, `cam_right_wrist`
+- shape: `[3,4,4]`
+- convention: `T_camera_from_ego`
+- equation: `p_camera = T_camera_from_ego @ p_ego`
+- ego frame: `base_link`
 
-未经测量的手眼标定不能从 eepose 猜测。若标定不可用，保留全 0 placeholder 并将 validity 设为 false。
+Measured hand-eye calibration must not be inferred from eepose. When trusted
+calibration is unavailable, retain the all-zero placeholder and set validity
+to false.
 
 ### 5.2 `target.source`
 
-| 值 | 含义 |
+| Value | Meaning |
 | ---: | --- |
 | 0 | `policy` |
 | 1 | `operator` |
@@ -146,72 +176,114 @@ eepose = unified[14:28]
 | 4 | `scripted` |
 | 5 | `unknown` |
 
-字段名为 `action` 不足以证明其来源或是否为真实下发命令。来源未确认时使用 `5`，target mask 保持 false，并令数据集 `training_ready=false`。
+A field named `action` does not prove its source or that it is the command
+actually issued. Use `5`, keep the target mask false, and set the dataset to
+`training_ready=false` when the source is unconfirmed.
 
-## 6. Metadata 契约
+## 6. Metadata contract
 
 ### 6.1 `meta/info.json`
 
-至少描述：
+It must describe at least:
 
-- dataset/schema id 与 version
-- `embodiment_id`、`embodiment_description`、整数 `fps`
-- episode、frame、task、subtask、video 和 chunk 数量
-- `data_path` 与 `video_path` 模板
-- 12 个 Parquet feature 和三路 video feature
-- 完整 `unified_layout`
-- geometry、kinematics、time alignment 和 `ego2cam` 约定
-- field validity、placeholder policy、storage policy
-- target source enum 与 annotation contract
-- 数据来源、生成器版本、warning 和 `training_ready`
+- dataset and schema ids and versions
+- `embodiment_id`, `embodiment_description`, and integer `fps`
+- episode, frame, task, subtask, video, and chunk counts
+- `data_path` and `video_path` templates
+- all 12 Parquet features and three video features
+- the complete `unified_layout`
+- geometry, kinematics, time-alignment, and `ego2cam` conventions
+- field validity, placeholder policy, and storage policy
+- the target-source enum and annotation contract
+- data origin, generator version, warnings, and `training_ready`
 
-`qpose`、`eepose` 不作为平行真值列重复存储；它们应从版本化 layout 解码。也不存储可由 mask 推导的标量 `target.valid`，不复制 policy target，不逐帧重复 task/subtask 文本。
+`qpose` and `eepose` are not duplicated as parallel ground-truth columns;
+they are decoded from the versioned layout. Do not store a scalar
+`target.valid` that can be derived from the mask, duplicate policy targets, or
+repeat task/subtask text on every frame.
 
-### 6.2 Task 与 subtask
+### 6.2 Tasks and subtasks
 
-- `tasks.jsonl`：episode 级任务词表，至少包含 `task_index`、`task_id`、`task`、`language`。
-- `episodes.jsonl[*].task_index`：episode 到 task 的外键。
-- `subtasks.jsonl`：帧级原子任务词表，至少包含 `subtask_index`、`subtask_id`、`subtask`、`language`。
-- Parquet `subtask_index`：每帧到 subtask 的外键。
+- `tasks.jsonl`: episode-level task vocabulary containing at least
+  `task_index`, `task_id`, `task`, and `language`.
+- `episodes.jsonl[*].task_index`: foreign key from an episode to a task.
+- `subtasks.jsonl`: frame-level atomic-task vocabulary containing at least
+  `subtask_index`, `subtask_id`, `subtask`, and `language`.
+- Parquet `subtask_index`: per-frame foreign key to a subtask.
 
-建议的定义记录还包括 category、required effectors、object metadata、goal conditions、success evaluator、placeholder status 和 annotation provenance。自动标注必须保存 provider/model、prompt/schema version、时间、置信度与 human-review 状态，但不得保存 API secret。
+Recommended definition records also include category, required effectors,
+object metadata, goal conditions, success evaluator, placeholder status, and
+annotation provenance. Automated annotations must preserve provider/model,
+prompt/schema version, time, confidence, and human-review status, but never an
+API secret.
 
-如果 episode 级任务未知，必须显式记录 unavailable placeholder，不能把无序 subtask 集合拼成虚假的总体目标。可由逐帧 `subtask_index` 推导的分段不重复存储。
+If an episode-level task is unknown, record an explicit unavailable
+placeholder rather than fabricating an overall goal from an unordered set of
+subtasks. Segments derivable from per-frame `subtask_index` are not duplicated.
 
-### 6.3 Episode 与统计
+### 6.3 Episodes and statistics
 
-`episodes.jsonl` 每行至少包含 `episode_index`、稳定的 `episode_uid`、source episode identity、`task_index`、`length`、`data_source`、outcome 及其状态。`episodes_stats.jsonl` 每个 episode 恰有一行，并以相同 `episode_index` 关联。
+Each `episodes.jsonl` row must contain at least `episode_index`, a stable
+`episode_uid`, source episode identity, `task_index`, `length`, `data_source`,
+and outcome with its status. `episodes_stats.jsonl` has exactly one row per
+episode linked by the same `episode_index`.
 
-## 7. Version 与内容 manifest
+## 7. Version and content manifest
 
-`meta/fluxvla_dataset_version.json` 固定 dataset/schema 版本、qualified dataset id、发布时间、release status、immutable 标记、SemVer policy，以及 `meta/artifacts.sha256.json` 的路径。
+`meta/fluxvla_dataset_version.json` fixes the dataset and schema versions,
+qualified dataset id, publication time, release status, immutable marker,
+SemVer policy, and the path to `meta/artifacts.sha256.json`.
 
-内容 manifest 应至少提供：
+The content manifest must provide at least:
 
-- manifest 格式与版本
-- schema id/version 和 canonical schema-rules hash
-- dataset id/version 和 content hash
-- converter 名称、版本与可验证 hash
-- 每个发布 artifact 的相对路径、大小和 SHA-256
+- manifest format and version
+- schema id/version and canonical schema-rules hash
+- dataset id/version and content hash
+- converter name, version, and verifiable hash
+- relative path, size, and SHA-256 for every released artifact
 
-manifest 覆盖 Parquet、视频和除 manifest 自身以外的 metadata。发布验证必须拒绝缺失、额外、hash 不符或路径逃逸的 artifact。
+The manifest covers Parquet, videos, and all metadata except the manifest
+itself. Release validation must reject missing or extra artifacts, hash
+mismatches, and path traversal.
 
 ## 8. Training readiness
 
-`training_ready` 是验证结果，不是用户随意设置的标签。以下任一项未确认时必须为 false：
+`training_ready` is a validation result, not a manually assigned label. It
+must be false when any of the following remain unverified:
 
-- issued target/action 的语义、顺序、单位或对齐不可验证
-- observation 的关键 state 不可用
-- 所需相机、视频或时间对齐不完整
-- task/subtask 外键无效
-- schema、mask、统计或 manifest 验证失败
-- 当前训练任务要求的标定、kinematics 或 episode-level task 缺失
+- issued target/action semantics, order, units, or alignment
+- required observation state
+- required cameras, videos, or time alignment
+- task/subtask foreign-key closure
+- schema, masks, statistics, or manifest validation
+- calibration, kinematics, or episode-level tasks required by the target
+  training workload
 
-validator 应输出结构化 blocker 列表，使“数据可浏览”和“可用于监督训练”保持明确区分。
+Validators must emit structured blocker lists so that "browsable data" and
+"ready for supervised training" remain distinct states.
 
-## 9. 当前实现状态
+## 9. Current implementation status
 
-本仓库已实现 HDF 到 canonical Parquet、可选 MP4、基础 metadata、masked
-statistics、artifact manifest 以及 schema/FK/video-count/stats/hash validator。
-当前不会生成 FK/eepose 或相机外参，不解释 depth，不调用自动标注 API，也不会
-在 action、时间和标定语义未确认时给出训练就绪认证。
+The repository implements HDF-to-canonical Parquet conversion, optional MP4
+materialization, base metadata, masked statistics, an artifact manifest, and
+schema/foreign-key/video-count/statistics/hash validators. It does not
+currently generate FK/eepose or camera extrinsics, interpret depth, call an
+automated annotation API, or certify training readiness while action, timing,
+and calibration semantics remain unverified.
+
+## 10. ReBot dual-arm profile
+
+ReBot B601 dual-arm data uses the same 12 Parquet columns and 107D slot ranges,
+but its gripper slots represent motor angles rather than metric opening
+positions. It therefore uses a distinct data-contract identity:
+
+- schema id: `rebot_dual_unified`
+- schema version: `1.0.0`
+- layout id: `rebot_dual_107_v1`
+- embodiment id: `rebot_b601_dual`
+- gripper slots `[28,30)` unit: `rad`
+- target source: `operator`
+
+See [`conversion.md`](conversion.md) for the mapping and confirmed target
+provenance. Consumers that support only `agilex_aloha_unified` must reject the
+ReBot profile; sharing 107 dimensions does not imply unit compatibility.
