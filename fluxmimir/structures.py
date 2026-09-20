@@ -43,6 +43,7 @@ class StageResult:
     metrics: Mapping[str, float] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    skipped: bool = False
 
 
 class IssueSeverity(str, Enum):
