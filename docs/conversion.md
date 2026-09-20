@@ -422,3 +422,28 @@ Override input and output paths through `FLUXMIMIR_RAW_ROOT` and
 `FLUXMIMIR_OUTPUT_ROOT`. The release stays `training_ready=false` while stored
 action provenance, camera extrinsics, and frame-level subtasks remain
 unconfirmed.
+
+## 12. Static frame filtering
+
+`FilterStaticFrames` is an optional conversion stage that drops recordings
+which hold a single pose for too long. Frame `t` counts as static when every
+dimension that is valid on both `t - 1` and `t` moved by at most its configured
+step threshold; frame 0 has no incoming step and never counts. An episode is
+dropped once its longest run of static frames reaches `static_frame_threshold`
+(for example 50 frames, about 1.7 s at 30 fps).
+
+The stage ships disabled in both ALOHA conversion configs. Thresholds are
+grouped by canonical layout range and come from the configuration; the operator
+carries no threshold defaults. The ALOHA profile
+uses `arm_joint_position` `1.0e-4` and `gripper_position` `1.5e-4`. Two
+policies are available: `report` only audits, `drop_episode` asks the runner to
+leave the episode out of the release.
+
+Dropped episodes produce no Parquet or video, and the runner keeps
+`episode_index`, `index`, and `frame_index` contiguous. Every source episode is
+recorded in `<runner.work_dir>/<audit_name>` as JSON lines: one header per run
+with the resolved criteria and their fingerprint, then one row per episode with
+its qualifying segments, static frame count, and decision. The stage fails
+closed when an episode has no valid dimension, when a configured group is
+absent from the canonical layout, or when it runs after
+`ComputeMaskedEpisodeStatistics`.
