@@ -70,6 +70,9 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
     robot_type = 'aloha'
     gripper_unit = 'm'
     layout_profile = 'aloha'
+    active_ranges = ((0, 6), (7, 13), (28, 30))
+    qpose_reconstruction = ('unified[0:6] + unified[28] + '
+                            'unified[7:13] + unified[29]')
     source_format = 'AgileX ALOHA episode HDF5'
     conversion_description = 'streaming HDF5 to canonical unified 107D'
     video_materialization = 'direct_streaming_encode'

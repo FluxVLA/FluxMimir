@@ -71,8 +71,9 @@ def _fixed_tensor(values: np.ndarray, value_type: Any) -> Any:
     return result
 
 
-def _unified_layout(layout_id: str, gripper_unit: str,
-                    profile: str) -> dict[str, Any]:
+def _unified_layout(layout_id: str, gripper_unit: str, profile: str,
+                    active_ranges: tuple[tuple[int, int], ...],
+                    qpose_reconstruction: str) -> dict[str, Any]:
     return {
         'layout_id':
         layout_id,
@@ -124,14 +125,14 @@ def _unified_layout(layout_id: str, gripper_unit: str,
                 'semantic': 'reserved'
             },
         ],
-        f'{profile}_observation_active_ranges': [[0, 6], [7, 13], [28, 30]],
+        f'{profile}_observation_active_ranges':
+        [list(item) for item in active_ranges],
         f'{profile}_optional_eepose_range': [14, 28],
-        f'{profile}_target_active_ranges': [[0, 6], [7, 13], [28, 30]],
+        f'{profile}_target_active_ranges':
+        [list(item) for item in active_ranges],
         f'{profile}_reconstruction': {
-            'qpose': ('unified[0:6] + unified[28] + unified[7:13] + '
-                      'unified[29]'),
-            'eepose':
-            'unified[14:28]',
+            'qpose': qpose_reconstruction,
+            'eepose': 'unified[14:28]',
         },
     }
 
@@ -586,6 +587,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             for item in episodes
         }
         fps = int(metadata.get('fps', 30))
+        active_ranges = [list(item) for item in self.embodiment.active_ranges]
         info = {
             'codebase_version':
             'v2.1',
@@ -656,7 +658,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 'observation.unified_107d': {
                     'available': True,
                     'validity_column': 'observation.unified_107d_mask',
-                    'always_active_ranges': [[0, 6], [7, 13], [28, 30]],
+                    'always_active_ranges': active_ranges,
                     'optional_eepose_range': [14, 28],
                 },
                 'observation.ego2cam': {
@@ -672,7 +674,9 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             },
             'unified_layout':
             _unified_layout(self.layout_id, self.embodiment.gripper_unit,
-                            self.embodiment.layout_profile),
+                            self.embodiment.layout_profile,
+                            self.embodiment.active_ranges,
+                            self.embodiment.qpose_reconstruction),
             'ego2cam_contract': {
                 'column': 'observation.ego2cam',
                 'validity_column': 'observation.ego2cam_valid',
