@@ -447,3 +447,57 @@ its qualifying segments, static frame count, and decision. The stage fails
 closed when an episode has no valid dimension, when a configured group is
 absent from the canonical layout, or when it runs after
 `ComputeMaskedEpisodeStatistics`.
+
+## 13. franka_dual conversion
+
+`franka_dual_unified@1.0.0` converts dual Franka Panda LeRobot v2.1 data into
+canonical 107D. It has a distinct schema/layout because each arm exposes seven
+joints plus one gripper opening.
+
+Confirmed source semantics:
+
+- `observation.state` is `float32[16]`: left `panda_joint1..7`, `left_gripper`,
+  right `panda_joint1..7`, `right_gripper`. Joints are radians, grippers are
+  opening positions in metres (`0.0` closed to `0.081` open); near the closed
+  position the recorded opening can be slightly negative, so the config sets
+  `gripper_min_m=-0.001` while the adapter default stays `0.0`.
+- `observation.eepose` is `float32[16]`: `x, y, z, qx, qy, qz, qw` plus a
+  redundant `gripper` per arm. Both arms share one base frame, so values are
+  copied without any frame or unit transform.
+- `action` is optional: while `action_semantics='unknown'` it is provenance
+  only and the target stays fully masked.
+
+Mapping:
+
+```text
+unified[0:7]   <- state[0:7]
+unified[7:14]  <- state[8:15]
+unified[28]    <- state[7]
+unified[29]    <- state[15]
+unified[14:21] <- eepose[0:7]
+unified[21:28] <- eepose[8:15]
+```
+
+Slots 6 and 13 hold real seventh joints here, so downstreams select
+`franka_qpose_indices()` through `schema_id` instead of assuming the ALOHA
+view. `preflight` fails closed when the state/eepose width, the joint names,
+the gripper range, or the camera set does not match this contract.
+
+Camera names map as `cam_front -> cam_high`, `cam_wrist_left ->
+cam_left_wrist`, and `cam_wrist_right -> cam_right_wrist`. Existing MP4 files
+are copied without transcoding. Convert one episode first:
+
+```bash
+fluxmimir-convert \
+  configs/conversion/franka_dual_lerobot_v2_to_canonical_107d.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/franka_dual_smoke
+```
+
+Override input and output paths through `FLUXMIMIR_RAW_ROOT` and
+`FLUXMIMIR_OUTPUT_ROOT`; the default release root is
+`work_dirs/datasets/franka_dual_107d`. The release stays `training_ready=false`
+because the export has no action provenance, no calibrated ego2cam, no hardware
+timestamps, and no frame-level subtasks. `FilterStaticFrames` ships disabled.

@@ -22,6 +22,10 @@ LEROBOT_V2_CONFIG = (
     REPO_ROOT / 'configs' / 'conversion' /
     'agilex_aloha_lerobot_v2_to_canonical_107d.py')
 
+FRANKA_CONFIG = (
+    REPO_ROOT / 'configs' / 'conversion' /
+    'franka_dual_lerobot_v2_to_canonical_107d.py')
+
 
 @pytest.mark.parametrize('expected_kind,config_path', CONFIGS.items())
 def test_example_config_has_common_pipeline_shape(expected_kind, config_path):
@@ -82,3 +86,14 @@ def test_lerobot_v2_config_keeps_static_frame_filter_disabled():
 
     assert stage.type == 'FilterStaticFrames'
     assert stage.enabled is False
+
+
+def test_franka_config_maps_cameras_and_keeps_filter_disabled():
+    cfg = Config.fromfile(FRANKA_CONFIG)
+
+    assert cfg.pipeline.source.camera_mapping['cam_high'] == (
+        'observation.images.cam_front')
+    assert cfg.pipeline.embodiment.type == 'FrankaDualAdapter'
+    assert cfg.pipeline.stages[1].type == 'MapFrankaToCanonical107D'
+    assert cfg.pipeline.stages[2].type == 'FilterStaticFrames'
+    assert cfg.pipeline.stages[2].enabled is False
