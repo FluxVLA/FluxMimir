@@ -382,3 +382,43 @@ output paths through `FLUXMIMIR_RAW_ROOT` and `FLUXMIMIR_OUTPUT_ROOT`. The
 current release remains `training_ready=false` because camera extrinsics,
 hardware-clock provenance, and frame-level subtasks are unavailable. Confirmed
 action semantics are not a blocker.
+
+## 11. LeRobot v2.1 conversion
+
+`LeRobotV2Source` converts LeRobot v2.0/v2.1 ALOHA datasets
+(`data/chunk-*/episode_*.parquet` plus
+`videos/chunk-*/<video_key>/episode_*.mp4`) into `agilex_aloha_unified@1.1.0`.
+
+Confirmed source semantics:
+
+- `observation.state` is the 14D follower joint position in the canonical
+  left-arm/gripper/right-arm/gripper order, so it maps like raw ALOHA qpos.
+- `meta/tasks.jsonl` supplies the episode-level task text.
+- `observation.eepose`, when present, fills the optional `[14,28)` slot and
+  marks it valid.
+- `action` is optional. Datasets exported without it, or without confirmed
+  issue provenance, keep a fully masked target placeholder with
+  `target.source=unknown` instead of a fabricated label.
+- Source camera keys map through `camera_mapping`, for example
+  `cam_high -> observation.images.cam_high`.
+- Frame `task_index` may vary inside one episode, which marks frame-level
+  subtask labels. The contract forbids inventing an episode goal from an
+  unordered set of subtasks, so such an episode records an explicit
+  unavailable episode-level task instead of one frame label.
+
+Existing MP4 files are copied without transcoding and frame counts are checked
+against Parquet rows. Convert one episode first:
+
+```bash
+fluxmimir-convert \
+  configs/conversion/agilex_aloha_lerobot_v2_to_canonical_107d.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/aloha_v2_smoke
+```
+
+Override input and output paths through `FLUXMIMIR_RAW_ROOT` and
+`FLUXMIMIR_OUTPUT_ROOT`. The release stays `training_ready=false` while stored
+action provenance, camera extrinsics, and frame-level subtasks remain
+unconfirmed.

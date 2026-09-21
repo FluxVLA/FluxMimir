@@ -18,6 +18,10 @@ REBOT_CONFIG = (
     REPO_ROOT / 'configs' / 'conversion' /
     'rebot_dual_lerobot_v3_to_canonical_107d.py')
 
+LEROBOT_V2_CONFIG = (
+    REPO_ROOT / 'configs' / 'conversion' /
+    'agilex_aloha_lerobot_v2_to_canonical_107d.py')
+
 
 @pytest.mark.parametrize('expected_kind,config_path', CONFIGS.items())
 def test_example_config_has_common_pipeline_shape(expected_kind, config_path):
@@ -50,4 +54,14 @@ def test_rebot_config_preserves_confirmed_target_semantics():
             'issued_joint_position_target')
     assert cfg.pipeline.embodiment.action_source == 'operator'
     assert cfg.pipeline.stages[2].type == 'EncodeEpisodeVideos'
+    assert cfg.pipeline.stages[2].mode == 'copy'
+
+
+def test_lerobot_v2_config_reads_optional_modalities():
+    cfg = Config.fromfile(LEROBOT_V2_CONFIG)
+
+    assert cfg.pipeline.source.type == 'LeRobotV2Source'
+    assert cfg.pipeline.source.camera_mapping['cam_high'] == (
+        'observation.images.cam_high')
+    assert cfg.pipeline.source.eepose_key == 'observation.eepose'
     assert cfg.pipeline.stages[2].mode == 'copy'
