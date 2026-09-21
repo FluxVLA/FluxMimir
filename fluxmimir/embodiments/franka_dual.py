@@ -74,6 +74,8 @@ class FrankaDualAdapter(BaseEmbodimentAdapter):
     camera_order = CAMERA_ORDER
     gripper_unit = 'm'
     layout_profile = 'franka'
+    active_ranges = ((0, 14), (28, 30))
+    qpose_reconstruction = 'unified[0:14] + unified[28:30]'
     source_format = 'LeRobot v2.1 franka_dual episodes'
     conversion_description = 'streaming LeRobot v2.1 to canonical unified 107D'
     video_materialization = 'direct_streaming_encode'

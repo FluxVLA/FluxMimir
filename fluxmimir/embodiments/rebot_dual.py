@@ -68,6 +68,9 @@ class ReBotDualAdapter(BaseEmbodimentAdapter):
     camera_order = CAMERA_ORDER
     gripper_unit = 'rad'
     layout_profile = 'rebot'
+    active_ranges = ((0, 6), (7, 13), (28, 30))
+    qpose_reconstruction = ('unified[0:6] + unified[28] + '
+                            'unified[7:13] + unified[29]')
     source_format = 'LeRobot v3 Parquet and MP4'
     conversion_description = 'LeRobot v3 to ReBot canonical unified 107D'
     video_materialization = 'copied_source_mp4'
