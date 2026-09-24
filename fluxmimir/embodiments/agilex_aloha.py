@@ -58,7 +58,7 @@ def _qpose_mask(length: int) -> np.ndarray:
 
 @EMBODIMENTS.register_module()
 class AgileXAlohaAdapter(BaseEmbodimentAdapter):
-    """Map physically decoded ALOHA tensors into canonical 107D.
+    """Map physically decoded ALOHA tensors into canonical 128D.
 
     ``action_semantics`` deliberately defaults to ``unknown``. Merely finding
     an HDF dataset named ``action`` is not sufficient evidence that it is the
@@ -74,7 +74,7 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
     qpose_reconstruction = ('unified[0:6] + unified[28] + '
                             'unified[7:13] + unified[29]')
     source_format = 'AgileX ALOHA episode HDF5'
-    conversion_description = 'streaming HDF5 to canonical unified 107D'
+    conversion_description = 'streaming HDF5 to canonical unified 128D'
     video_materialization = 'direct_streaming_encode'
     training_readiness_blockers = (
         'raw action semantics/provenance are unconfirmed',
@@ -182,9 +182,9 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
             mask[:, 14:28] = True
 
         return {
-            'observation.unified_107d':
+            'observation.unified_128d':
             unified,
-            'observation.unified_107d_mask':
+            'observation.unified_128d_mask':
             mask,
             'observation.ego2cam':
             np.full(
@@ -216,7 +216,7 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
             mask = _qpose_mask(episode.length)
             source = TARGET_SOURCE[self.action_source]
         return {
-            'target.unified_107d': values,
-            'target.unified_107d_mask': mask,
+            'target.unified_128d': values,
+            'target.unified_128d_mask': mask,
             'target.source': np.full(episode.length, source, dtype=np.int8),
         }

@@ -1,5 +1,5 @@
-from fluxmimir.schemas import (CANONICAL_107D_SCHEMA, LAYOUT_RANGES,
-                               PARQUET_COLUMNS, REBOT_DUAL_107D_SCHEMA,
+from fluxmimir.schemas import (CANONICAL_128D_SCHEMA, LAYOUT_RANGES,
+                               PARQUET_COLUMNS, REBOT_DUAL_128D_SCHEMA,
                                REBOT_DUAL_LAYOUT_ID, UNIFIED_DIM,
                                aloha_qpose_indices, franka_qpose_indices)
 
@@ -7,11 +7,11 @@ from fluxmimir.schemas import (CANONICAL_107D_SCHEMA, LAYOUT_RANGES,
 def test_canonical_schema_has_exact_physical_columns():
     assert len(PARQUET_COLUMNS) == 12
     assert tuple(feature.name
-                 for feature in CANONICAL_107D_SCHEMA.features) == (
+                 for feature in CANONICAL_128D_SCHEMA.features) == (
                      PARQUET_COLUMNS)
 
 
-def test_unified_layout_is_contiguous_and_107d():
+def test_unified_layout_is_contiguous_and_spans_the_unified_dimension():
     assert LAYOUT_RANGES[0].start == 0
     assert all(left.end == right.start
                for left, right in zip(LAYOUT_RANGES, LAYOUT_RANGES[1:]))
@@ -28,10 +28,10 @@ def test_aloha_qpose_view_uses_gripper_slots_not_reserved_joints():
 
 
 def test_rebot_schema_has_distinct_versioned_layout():
-    assert REBOT_DUAL_107D_SCHEMA.schema_id == 'rebot_dual_unified'
-    assert REBOT_DUAL_107D_SCHEMA.layout_id == REBOT_DUAL_LAYOUT_ID
+    assert REBOT_DUAL_128D_SCHEMA.schema_id == 'rebot_dual_unified'
+    assert REBOT_DUAL_128D_SCHEMA.layout_id == REBOT_DUAL_LAYOUT_ID
     assert tuple(feature.name
-                 for feature in REBOT_DUAL_107D_SCHEMA.features) == (
+                 for feature in REBOT_DUAL_128D_SCHEMA.features) == (
                      PARQUET_COLUMNS)
 
 

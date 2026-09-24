@@ -3,7 +3,7 @@ raw_root = ('{{$FLUXMIMIR_RAW_ROOT:'
             'RealRobot_AgileX_aloha}}')
 output_root = ('{{$FLUXMIMIR_OUTPUT_ROOT:'
                'work_dirs/datasets/'
-               'realrobot_agilex_aloha_canonical_107d}}')
+               'realrobot_agilex_aloha_canonical_128d}}')
 
 pipeline = dict(
     kind='conversion',
@@ -27,8 +27,8 @@ pipeline = dict(
     embodiment=dict(
         type='AgileXAlohaAdapter',
         schema_id='agilex_aloha_unified',
-        schema_version='1.1.0',
-        layout_id='lingbot_vla2_dexhand32x2_107_v1',
+        schema_version='2.0.0',
+        layout_id='lingbot_vla2_dexhand32x2_128_v1',
         require_confirmed=[
             'joint_order',
             'action_semantics',
@@ -48,7 +48,7 @@ pipeline = dict(
     ),
     stages=[
         dict(type='ProbeSourceSchema', scope='all_episodes'),
-        dict(type='MapAlohaToCanonical107D'),
+        dict(type='MapAlohaToCanonical128D'),
         # Static frame filtering is opt-in. Start with policy='report' and
         # inspect work_dir/static_frames.jsonl before dropping episodes.
         dict(

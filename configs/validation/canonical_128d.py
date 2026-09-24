@@ -4,7 +4,7 @@ pipeline = dict(
     kind='validation',
     runner=dict(
         type='ValidationRunner',
-        work_dir='work_dirs/validation/canonical_107d',
+        work_dir='work_dirs/validation/canonical_128d',
         write_report_only=True,
         mutate_dataset=False,
     ),
@@ -12,7 +12,7 @@ pipeline = dict(
         type='CanonicalDatasetSource',
         root=dataset_root,
         expected_schema_id='agilex_aloha_unified',
-        expected_schema_version='1.1.0',
+        expected_schema_version='2.0.0',
     ),
     stages=[],
     writer=dict(type='JSONValidationReportWriter'),
