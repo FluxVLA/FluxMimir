@@ -11,7 +11,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.conversion import EpisodeRecord, masked_statistics
-from fluxmimir.embodiments import SOURCE_CAMERAS, BaseEmbodimentAdapter
+from fluxmimir.embodiments import BaseEmbodimentAdapter
 from fluxmimir.engines.utils import WRITERS
 from fluxmimir.schemas import PARQUET_COLUMNS, TARGET_SOURCE, UNIFIED_DIM
 from fluxmimir.structures import ArtifactRecord, PipelineContext, StageResult
@@ -178,6 +178,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.publish_manifest = bool(publish_manifest)
         self.in_place = bool(in_place)
         self.embodiment = embodiment
+        self.camera_order = tuple(embodiment.camera_order)
         self.schema_id = self.embodiment.schema_id
         self.schema_version = self.embodiment.schema_version
         self.layout_id = self.embodiment.layout_id
@@ -212,13 +213,14 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         return (self.root / f'videos/chunk-{chunk:03d}' / key /
                 f'episode_{episode_index:06d}.mp4')
 
-    @staticmethod
-    def _validate_canonical(value: Mapping[str, Any], length: int) -> None:
+    def _validate_canonical(self, value: Mapping[str, Any],
+                            length: int) -> None:
+        camera_count = len(self.camera_order)
         shapes = {
             'observation.unified_128d': (length, UNIFIED_DIM),
             'observation.unified_128d_mask': (length, UNIFIED_DIM),
-            'observation.ego2cam': (length, len(SOURCE_CAMERAS), 4, 4),
-            'observation.ego2cam_valid': (length, len(SOURCE_CAMERAS)),
+            'observation.ego2cam': (length, camera_count, 4, 4),
+            'observation.ego2cam_valid': (length, camera_count),
             'target.unified_128d': (length, UNIFIED_DIM),
             'target.unified_128d_mask': (length, UNIFIED_DIM),
             'target.source': (length, ),
@@ -408,7 +410,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
 
         video_spec = value.get('_video_encoding', {'enabled': False})
         if video_spec.get('enabled'):
-            for camera in SOURCE_CAMERAS:
+            for camera in self.camera_order:
                 if camera not in episode.media:
                     raise ValueError(
                         f'{episode.ref.source_uri}: missing {camera}')
@@ -538,12 +540,12 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             },
             'observation.ego2cam': {
                 'dtype': 'float32',
-                'shape': [3, 4, 4],
+                'shape': [len(self.camera_order), 4, 4],
                 'names': None,
             },
             'observation.ego2cam_valid': {
                 'dtype': 'bool',
-                'shape': [3],
+                'shape': [len(self.camera_order)],
                 'names': None,
             },
             'target.unified_128d': {
@@ -694,8 +696,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'ego2cam_contract': {
                 'column': 'observation.ego2cam',
                 'validity_column': 'observation.ego2cam_valid',
-                'camera_order': list(SOURCE_CAMERAS),
-                'shape': [3, 4, 4],
+                'camera_order': list(self.camera_order),
+                'shape': [len(self.camera_order), 4, 4],
                 'matrix_convention': 'T_camera_from_ego',
                 'equation': 'p_camera = T_camera_from_ego @ p_ego',
                 'ego_frame': 'base_link',

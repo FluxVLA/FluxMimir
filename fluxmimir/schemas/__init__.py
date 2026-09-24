@@ -2,11 +2,15 @@ from .base import DatasetSchema, FeatureSpec
 from .canonical_128d import (CAMERA_ORDER, CANONICAL_128D_SCHEMA, LAYOUT_ID,
                              LAYOUT_RANGES, METADATA_FILES, PARQUET_COLUMNS,
                              SCHEMA_ID, SCHEMA_VERSION, TARGET_SOURCE,
-                             UNIFIED_DIM, LayoutRange, aloha_qpose_indices)
+                             UNIFIED_DIM, LayoutRange, aloha_qpose_indices,
+                             canonical_features)
 from .franka_dual_128d import (FRANKA_DUAL_128D_SCHEMA, FRANKA_DUAL_LAYOUT_ID,
                                FRANKA_DUAL_SCHEMA_ID,
                                FRANKA_DUAL_SCHEMA_VERSION,
                                franka_qpose_indices)
+from .oli_128d import (OLI_128D_SCHEMA, OLI_ACTION_DIM, OLI_CAMERA_ORDER,
+                       OLI_LAYOUT_ID, OLI_SCHEMA_ID, OLI_SCHEMA_VERSION,
+                       OLI_STATE_DIM, OLI_STATE_JOINT_NAMES, oli_qpose_indices)
 from .rebot_dual_128d import (REBOT_DUAL_128D_SCHEMA, REBOT_DUAL_LAYOUT_ID,
                               REBOT_DUAL_SCHEMA_ID, REBOT_DUAL_SCHEMA_VERSION)
 
@@ -19,6 +23,14 @@ __all__ = [
     'FRANKA_DUAL_LAYOUT_ID',
     'FRANKA_DUAL_SCHEMA_ID',
     'FRANKA_DUAL_SCHEMA_VERSION',
+    'OLI_128D_SCHEMA',
+    'OLI_ACTION_DIM',
+    'OLI_CAMERA_ORDER',
+    'OLI_LAYOUT_ID',
+    'OLI_SCHEMA_ID',
+    'OLI_SCHEMA_VERSION',
+    'OLI_STATE_DIM',
+    'OLI_STATE_JOINT_NAMES',
     'LAYOUT_ID',
     'LAYOUT_RANGES',
     'LayoutRange',
@@ -33,5 +45,7 @@ __all__ = [
     'TARGET_SOURCE',
     'UNIFIED_DIM',
     'aloha_qpose_indices',
+    'canonical_features',
     'franka_qpose_indices',
+    'oli_qpose_indices',
 ]
