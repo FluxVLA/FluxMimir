@@ -70,15 +70,17 @@ LAYOUT_RANGES = (
     LayoutRange('reserved', 121, 128),
 )
 
-CANONICAL_128D_SCHEMA = DatasetSchema(
-    schema_id=SCHEMA_ID,
-    schema_version=SCHEMA_VERSION,
-    layout_id=LAYOUT_ID,
-    features=(
+
+def canonical_features(
+        cameras: tuple[str, ...] = CAMERA_ORDER) -> tuple[FeatureSpec, ...]:
+    """Return the canonical features for a declared camera set."""
+
+    camera_count = len(cameras)
+    return (
         FeatureSpec('observation.unified_128d', 'float32', (UNIFIED_DIM, )),
         FeatureSpec('observation.unified_128d_mask', 'bool', (UNIFIED_DIM, )),
-        FeatureSpec('observation.ego2cam', 'float32', (3, 4, 4)),
-        FeatureSpec('observation.ego2cam_valid', 'bool', (3, )),
+        FeatureSpec('observation.ego2cam', 'float32', (camera_count, 4, 4)),
+        FeatureSpec('observation.ego2cam_valid', 'bool', (camera_count, )),
         FeatureSpec('target.unified_128d', 'float32', (UNIFIED_DIM, )),
         FeatureSpec('target.unified_128d_mask', 'bool', (UNIFIED_DIM, )),
         FeatureSpec('target.source', 'int8', ()),
@@ -87,7 +89,14 @@ CANONICAL_128D_SCHEMA = DatasetSchema(
         FeatureSpec('episode_index', 'int64', ()),
         FeatureSpec('index', 'int64', ()),
         FeatureSpec('subtask_index', 'int64', ()),
-    ),
+    )
+
+
+CANONICAL_128D_SCHEMA = DatasetSchema(
+    schema_id=SCHEMA_ID,
+    schema_version=SCHEMA_VERSION,
+    layout_id=LAYOUT_ID,
+    features=canonical_features(),
 )
 
 

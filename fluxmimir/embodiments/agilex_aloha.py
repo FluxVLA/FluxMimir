@@ -68,6 +68,7 @@ class AgileXAlohaAdapter(BaseEmbodimentAdapter):
     embodiment_id = EMBODIMENT_ID
     embodiment_description = EMBODIMENT_DESCRIPTION
     robot_type = 'aloha'
+    camera_order = SOURCE_CAMERAS
     gripper_unit = 'm'
     layout_profile = 'aloha'
     active_ranges = ((0, 6), (7, 13), (28, 30))

@@ -70,6 +70,8 @@ class CanonicalParquetSchemaValidator(BaseValidator):
 
     def validate(self, value: Any) -> ValidationReport:
         root = Path(value)
+        info = _json(root / 'meta/info.json')
+        camera_count = len(info['ego2cam_contract']['camera_order'])
         issues: list[ValidationIssue] = []
         try:
             import pyarrow as pa
@@ -79,8 +81,8 @@ class CanonicalParquetSchemaValidator(BaseValidator):
         expected_types = (
             pa.list_(pa.float32(), UNIFIED_DIM),
             pa.list_(pa.bool_(), UNIFIED_DIM),
-            pa.list_(pa.list_(pa.list_(pa.float32(), 4), 4), 3),
-            pa.list_(pa.bool_(), 3),
+            pa.list_(pa.list_(pa.list_(pa.float32(), 4), 4), camera_count),
+            pa.list_(pa.bool_(), camera_count),
             pa.list_(pa.float32(), UNIFIED_DIM),
             pa.list_(pa.bool_(), UNIFIED_DIM),
             pa.int8(),
