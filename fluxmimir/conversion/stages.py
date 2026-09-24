@@ -5,7 +5,8 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.embodiments import (AgileXAlohaAdapter, BaseEmbodimentAdapter,
-                                   FrankaDualAdapter, ReBotDualAdapter)
+                                   FrankaDualAdapter, OliAdapter,
+                                   ReBotDualAdapter)
 from fluxmimir.engines.stages import BaseStage
 from fluxmimir.engines.utils import STAGES
 from fluxmimir.schemas import UNIFIED_DIM
@@ -163,6 +164,15 @@ class MapFrankaToCanonical128D(MapAlohaToCanonical128D):
     def __init__(self,
                  embodiment: BaseEmbodimentAdapter | None = None) -> None:
         super().__init__(embodiment=embodiment or FrankaDualAdapter())
+
+
+@STAGES.register_module()
+class MapOliToCanonical128D(MapAlohaToCanonical128D):
+    """Map LimX Oli records with the source-neutral 128D machinery."""
+
+    def __init__(self,
+                 embodiment: BaseEmbodimentAdapter | None = None) -> None:
+        super().__init__(embodiment=embodiment or OliAdapter())
 
 
 @STAGES.register_module()
