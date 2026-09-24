@@ -10,7 +10,7 @@ from .common import build_parser, describe_plan, load_config
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser(
         'conversion',
-        'Convert episode HDF5 files into canonical 107D Parquet datasets.',
+        'Convert episode HDF5 files into canonical 128D Parquet datasets.',
     )
     parser.add_argument(
         '--execute',

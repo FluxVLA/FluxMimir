@@ -29,10 +29,10 @@ def _episode(hold_frames=60, length=LENGTH, hold_start=HOLD_START):
     values[after:, 0] = (
         hold_value + 0.05 * np.arange(1, length - after + 1, dtype=np.float32))
     return {
-        'observation.unified_107d': values,
-        'observation.unified_107d_mask': mask,
-        'target.unified_107d': np.zeros_like(values),
-        'target.unified_107d_mask': np.zeros_like(mask),
+        'observation.unified_128d': values,
+        'observation.unified_128d_mask': mask,
+        'target.unified_128d': np.zeros_like(values),
+        'target.unified_128d_mask': np.zeros_like(mask),
         'timestamp': np.arange(length, dtype=np.float32) / 30.0,
         '_provenance': {
             'source_relative_path': 'collection/episode_0.hdf5'
@@ -71,8 +71,8 @@ def _rows(tmp_path):
 def test_static_frame_mask_marks_held_frames():
     episode = _episode()
 
-    static = static_frame_mask(episode['observation.unified_107d'],
-                               episode['observation.unified_107d_mask'],
+    static = static_frame_mask(episode['observation.unified_128d'],
+                               episode['observation.unified_128d_mask'],
                                _criteria().thresholds())
 
     assert int(static.sum()) == 59
@@ -83,8 +83,8 @@ def test_static_frame_mask_marks_held_frames():
 def test_static_frame_mask_boundary(hold_frames, frames):
     episode = _episode(hold_frames=hold_frames)
 
-    static = static_frame_mask(episode['observation.unified_107d'],
-                               episode['observation.unified_107d_mask'],
+    static = static_frame_mask(episode['observation.unified_128d'],
+                               episode['observation.unified_128d_mask'],
                                _criteria().thresholds())
 
     assert static_segments(static) == ((61, 60 + frames), )
@@ -92,8 +92,8 @@ def test_static_frame_mask_boundary(hold_frames, frames):
 
 def test_static_frame_mask_ignores_invalid_dimension():
     episode = _episode()
-    values = episode['observation.unified_107d']
-    mask = episode['observation.unified_107d_mask'].copy()
+    values = episode['observation.unified_128d']
+    mask = episode['observation.unified_128d_mask'].copy()
     values[:, 1] = np.where(np.arange(len(values)) % 2 == 0, 1.0, -1.0)
     mask[:, 1] = False
 
@@ -125,8 +125,8 @@ def test_static_frame_mask_requires_valid_dimension():
     episode = _episode()
 
     static = static_frame_mask(
-        episode['observation.unified_107d'],
-        np.zeros_like(episode['observation.unified_107d_mask']),
+        episode['observation.unified_128d'],
+        np.zeros_like(episode['observation.unified_128d_mask']),
         _criteria().thresholds())
 
     assert not static.any()
@@ -161,8 +161,8 @@ def test_filter_drops_episode_with_long_static_segment(tmp_path):
 
 def test_filter_requires_both_signals_static(tmp_path):
     episode = _episode()
-    episode['target.unified_107d_mask'][:, 0:6] = True
-    episode['target.unified_107d'][:, 0] = (
+    episode['target.unified_128d_mask'][:, 0:6] = True
+    episode['target.unified_128d'][:, 0] = (
         np.arange(LENGTH, dtype=np.float32) * 0.05)
     stage, context = _stage(tmp_path, policy='drop_episode')
     try:
@@ -184,8 +184,8 @@ def test_criteria_rejects_unknown_group():
 
 def test_filter_rejects_episode_without_valid_dimensions(tmp_path):
     episode = _episode()
-    episode['observation.unified_107d_mask'] = np.zeros_like(
-        episode['observation.unified_107d_mask'])
+    episode['observation.unified_128d_mask'] = np.zeros_like(
+        episode['observation.unified_128d_mask'])
     stage, context = _stage(tmp_path, policy='report')
     try:
         with pytest.raises(ValueError, match='valid dimension'):
@@ -231,7 +231,7 @@ def test_static_frame_filter_end_to_end(tmp_path):
                 type='AgileXAlohaAdapter', action_semantics='unknown'),
             stages=[
                 dict(type='ProbeSourceSchema'),
-                dict(type='MapAlohaToCanonical107D'),
+                dict(type='MapAlohaToCanonical128D'),
                 dict(
                     type='FilterStaticFrames',
                     enabled=True,

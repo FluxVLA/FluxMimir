@@ -32,7 +32,7 @@ class FilterStaticFrames(BaseStage):
             raise ValueError('signals must not be empty')
         if len(set(signals)) != len(signals):
             raise ValueError(f'duplicate signals: {signals}')
-        columns = tuple(f'{signal}.unified_107d' for signal in signals)
+        columns = tuple(f'{signal}.unified_128d' for signal in signals)
         unknown = sorted(signal for signal, column in zip(signals, columns)
                          if column not in PARQUET_COLUMNS
                          or f'{column}_mask' not in PARQUET_COLUMNS)

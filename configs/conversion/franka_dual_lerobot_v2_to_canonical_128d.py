@@ -1,19 +1,17 @@
-raw_root = ('{{$FLUXMIMIR_RAW_ROOT:'
-            'datasets/realrobot_rebot_dual_lerobot_v3}}')
-output_root = ('{{$FLUXMIMIR_OUTPUT_ROOT:'
-               'work_dirs/datasets/realrobot_rebot_dual_canonical_107d}}')
+raw_root = '{{$FLUXMIMIR_RAW_ROOT:datasets/franka_dual_lerobot_v2.1}}'
+output_root = '{{$FLUXMIMIR_OUTPUT_ROOT:work_dirs/datasets/franka_dual_128d}}'
 
 pipeline = dict(
     kind='conversion',
     runner=dict(
         type='PipelineRunner',
-        work_dir='work_dirs/conversion/rebot_dual',
+        work_dir='work_dirs/conversion/franka_dual',
         resume=True,
         overwrite=False,
         atomic_episode_commit=True,
     ),
     source=dict(
-        type='LeRobotV3Source',
+        type='LeRobotV2Source',
         root=raw_root,
         camera_mapping={
             'cam_high': 'observation.images.cam_front',
@@ -22,20 +20,29 @@ pipeline = dict(
         },
         state_key='observation.state',
         action_key='action',
+        eepose_key='observation.eepose',
         max_episodes=None,
     ),
     embodiment=dict(
-        type='ReBotDualAdapter',
-        action_semantics='issued_joint_position_target',
-        action_source='operator',
+        type='FrankaDualAdapter',
+        action_semantics='unknown',
         nominal_fps=30,
-        missing_dense_value=0.0,
-        gripper_min_rad=-4.712389,
-        gripper_max_rad=0.0,
+        gripper_min_m=-0.001,
     ),
     stages=[
         dict(type='ProbeSourceSchema'),
-        dict(type='MapReBotToCanonical107D'),
+        dict(type='MapFrankaToCanonical128D'),
+        dict(
+            type='FilterStaticFrames',
+            enabled=False,
+            policy='report',
+            static_frame_threshold=50,
+            signals=('observation', 'target'),
+            groups=('arm_joint_position', 'gripper_position'),
+            step_threshold=dict(
+                arm_joint_position=1.0e-4, gripper_position=1.5e-4),
+            audit_name='static_frames.jsonl',
+        ),
         dict(
             type='EncodeEpisodeVideos',
             codec='source',
@@ -48,7 +55,7 @@ pipeline = dict(
     writer=dict(
         type='CanonicalDatasetWriter',
         root=output_root,
-        dataset_id='realrobot_rebot_dual_pick_place',
+        dataset_id='realrobot_franka_dual_lerobot_v2',
         dataset_version='0.1.0',
         chunks_size=1000,
         publish_manifest=True,

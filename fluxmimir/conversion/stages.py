@@ -74,7 +74,7 @@ class ProbeSourceSchema(BaseStage):
 
 
 @STAGES.register_module()
-class MapAlohaToCanonical107D(BaseEpisodeMapper):
+class MapAlohaToCanonical128D(BaseEpisodeMapper):
 
     def __init__(self,
                  embodiment: BaseEmbodimentAdapter | None = None) -> None:
@@ -134,7 +134,7 @@ class MapAlohaToCanonical107D(BaseEpisodeMapper):
 
     def process(self, episode: Any, context: PipelineContext) -> StageResult:
         if not isinstance(episode, EpisodeRecord):
-            raise TypeError('MapAlohaToCanonical107D expects EpisodeRecord')
+            raise TypeError('MapAlohaToCanonical128D expects EpisodeRecord')
         report = self.embodiment.preflight(episode)
         if not report.ok:
             messages = '; '.join(f'{issue.code}: {issue.message}'
@@ -148,8 +148,8 @@ class MapAlohaToCanonical107D(BaseEpisodeMapper):
 
 
 @STAGES.register_module()
-class MapReBotToCanonical107D(MapAlohaToCanonical107D):
-    """Map ReBot dual-arm records with the source-neutral 107D machinery."""
+class MapReBotToCanonical128D(MapAlohaToCanonical128D):
+    """Map ReBot dual-arm records with the source-neutral 128D machinery."""
 
     def __init__(self,
                  embodiment: BaseEmbodimentAdapter | None = None) -> None:
@@ -157,8 +157,8 @@ class MapReBotToCanonical107D(MapAlohaToCanonical107D):
 
 
 @STAGES.register_module()
-class MapFrankaToCanonical107D(MapAlohaToCanonical107D):
-    """Map dual Franka records with the source-neutral 107D machinery."""
+class MapFrankaToCanonical128D(MapAlohaToCanonical128D):
+    """Map dual Franka records with the source-neutral 128D machinery."""
 
     def __init__(self,
                  embodiment: BaseEmbodimentAdapter | None = None) -> None:
@@ -205,17 +205,17 @@ class ComputeMaskedEpisodeStatistics(BaseStage):
         if not isinstance(episode, dict):
             raise TypeError('statistics stage expects mapped dictionary')
         value = dict(episode)
-        for name in ('observation.unified_107d', 'target.unified_107d'):
+        for name in ('observation.unified_128d', 'target.unified_128d'):
             if np.asarray(value[name]).shape[1] != UNIFIED_DIM:
                 raise ValueError(
                     f'{name} does not have {UNIFIED_DIM} dimensions')
         value['_statistics'] = {
-            'observation.unified_107d':
-            masked_statistics(value['observation.unified_107d'],
-                              value['observation.unified_107d_mask']),
-            'target.unified_107d':
-            masked_statistics(value['target.unified_107d'],
-                              value['target.unified_107d_mask']),
+            'observation.unified_128d':
+            masked_statistics(value['observation.unified_128d'],
+                              value['observation.unified_128d_mask']),
+            'target.unified_128d':
+            masked_statistics(value['target.unified_128d'],
+                              value['target.unified_128d_mask']),
         }
         return StageResult(value=value)
 

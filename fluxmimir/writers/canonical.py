@@ -121,7 +121,21 @@ def _unified_layout(layout_id: str, gripper_unit: str, profile: str,
                 'semantic': 'mobile_base_signal'
             },
             {
-                'range': [103, 107],
+                'range': [103, 109],
+                'semantic': 'left_leg_joint_position',
+                'unit': 'rad',
+            },
+            {
+                'range': [109, 115],
+                'semantic': 'right_leg_joint_position',
+                'unit': 'rad',
+            },
+            {
+                'range': [115, 121],
+                'semantic': 'mobile_base_rotation_6d'
+            },
+            {
+                'range': [121, 128],
                 'semantic': 'reserved'
             },
         ],
@@ -143,7 +157,7 @@ class BaseCanonicalDatasetWriter(BaseWriter, ABC):
 
 @WRITERS.register_module()
 class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
-    """Write the canonical 107D dataset without depending on LeRobot."""
+    """Write the canonical dataset without depending on LeRobot."""
 
     def __init__(
         self,
@@ -201,12 +215,12 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
     @staticmethod
     def _validate_canonical(value: Mapping[str, Any], length: int) -> None:
         shapes = {
-            'observation.unified_107d': (length, UNIFIED_DIM),
-            'observation.unified_107d_mask': (length, UNIFIED_DIM),
+            'observation.unified_128d': (length, UNIFIED_DIM),
+            'observation.unified_128d_mask': (length, UNIFIED_DIM),
             'observation.ego2cam': (length, len(SOURCE_CAMERAS), 4, 4),
             'observation.ego2cam_valid': (length, len(SOURCE_CAMERAS)),
-            'target.unified_107d': (length, UNIFIED_DIM),
-            'target.unified_107d_mask': (length, UNIFIED_DIM),
+            'target.unified_128d': (length, UNIFIED_DIM),
+            'target.unified_128d_mask': (length, UNIFIED_DIM),
             'target.source': (length, ),
             'timestamp': (length, ),
             'frame_index': (length, ),
@@ -220,23 +234,23 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             actual = np.asarray(value[name]).shape
             if actual != expected:
                 raise ValueError(f'{name} shape {actual} != {expected}')
-        for name in ('observation.unified_107d', 'observation.ego2cam',
-                     'target.unified_107d', 'timestamp'):
+        for name in ('observation.unified_128d', 'observation.ego2cam',
+                     'target.unified_128d', 'timestamp'):
             if not np.isfinite(np.asarray(value[name])).all():
                 raise ValueError(f'{name} contains NaN/Inf')
 
     def _write_parquet(self, path: Path, value: Mapping[str, Any]) -> None:
         pa, pq = _require_pyarrow()
         table = pa.table({
-            'observation.unified_107d':
+            'observation.unified_128d':
             _fixed_tensor(
                 np.asarray(
-                    value['observation.unified_107d'], dtype=np.float32),
+                    value['observation.unified_128d'], dtype=np.float32),
                 pa.float32()),
-            'observation.unified_107d_mask':
+            'observation.unified_128d_mask':
             _fixed_tensor(
                 np.asarray(
-                    value['observation.unified_107d_mask'], dtype=np.bool_),
+                    value['observation.unified_128d_mask'], dtype=np.bool_),
                 pa.bool_()),
             'observation.ego2cam':
             _fixed_tensor(
@@ -246,13 +260,13 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             _fixed_tensor(
                 np.asarray(value['observation.ego2cam_valid'], dtype=np.bool_),
                 pa.bool_()),
-            'target.unified_107d':
+            'target.unified_128d':
             _fixed_tensor(
-                np.asarray(value['target.unified_107d'], dtype=np.float32),
+                np.asarray(value['target.unified_128d'], dtype=np.float32),
                 pa.float32()),
-            'target.unified_107d_mask':
+            'target.unified_128d_mask':
             _fixed_tensor(
-                np.asarray(value['target.unified_107d_mask'], dtype=np.bool_),
+                np.asarray(value['target.unified_128d_mask'], dtype=np.bool_),
                 pa.bool_()),
             'target.source':
             pa.array(value['target.source'], type=pa.int8()),
@@ -456,12 +470,12 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         stats = value.get('_statistics')
         if stats is None:
             stats = {
-                'observation.unified_107d':
-                masked_statistics(value['observation.unified_107d'],
-                                  value['observation.unified_107d_mask']),
-                'target.unified_107d':
-                masked_statistics(value['target.unified_107d'],
-                                  value['target.unified_107d_mask']),
+                'observation.unified_128d':
+                masked_statistics(value['observation.unified_128d'],
+                                  value['observation.unified_128d_mask']),
+                'target.unified_128d':
+                masked_statistics(value['target.unified_128d'],
+                                  value['target.unified_128d_mask']),
             }
         task_index = int(episode.metadata.get('task_index', 0))
         task_text = episode.metadata.get('task')
@@ -511,15 +525,15 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
 
     def _features(self, video_features: Mapping[str, Any]) -> dict[str, Any]:
         features = {
-            'observation.unified_107d': {
+            'observation.unified_128d': {
                 'dtype': 'float32',
-                'shape': [107],
+                'shape': [UNIFIED_DIM],
                 'names': None,
                 'layout_id': self.layout_id,
             },
-            'observation.unified_107d_mask': {
+            'observation.unified_128d_mask': {
                 'dtype': 'bool',
-                'shape': [107],
+                'shape': [UNIFIED_DIM],
                 'names': None,
             },
             'observation.ego2cam': {
@@ -532,15 +546,15 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 'shape': [3],
                 'names': None,
             },
-            'target.unified_107d': {
+            'target.unified_128d': {
                 'dtype': 'float32',
-                'shape': [107],
+                'shape': [UNIFIED_DIM],
                 'names': None,
                 'layout_id': self.layout_id,
             },
-            'target.unified_107d_mask': {
+            'target.unified_128d_mask': {
                 'dtype': 'bool',
-                'shape': [107],
+                'shape': [UNIFIED_DIM],
                 'names': None,
             },
             'target.source': {
@@ -655,9 +669,9 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                                           if self.video_count else 'disabled'),
             },
             'field_validity': {
-                'observation.unified_107d': {
+                'observation.unified_128d': {
                     'available': True,
-                    'validity_column': 'observation.unified_107d_mask',
+                    'validity_column': 'observation.unified_128d_mask',
                     'always_active_ranges': active_ranges,
                     'optional_eepose_range': [14, 28],
                 },
@@ -666,10 +680,10 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                     'value': 'all_zero_placeholder',
                     'validity_column': 'observation.ego2cam_valid',
                 },
-                'target.unified_107d': {
+                'target.unified_128d': {
                     'available': metadata.get('action_semantics') ==
                     'issued_joint_position_target',
-                    'validity_column': 'target.unified_107d_mask',
+                    'validity_column': 'target.unified_128d_mask',
                 },
             },
             'unified_layout':

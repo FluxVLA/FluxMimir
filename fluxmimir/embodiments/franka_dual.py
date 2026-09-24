@@ -63,7 +63,7 @@ def _map_pose(values: np.ndarray) -> np.ndarray:
 
 @EMBODIMENTS.register_module()
 class FrankaDualAdapter(BaseEmbodimentAdapter):
-    """Map dual Franka feedback into the canonical 107D layout."""
+    """Map dual Franka feedback into the canonical 128D layout."""
 
     schema_id = FRANKA_DUAL_SCHEMA_ID
     schema_version = FRANKA_DUAL_SCHEMA_VERSION
@@ -77,7 +77,7 @@ class FrankaDualAdapter(BaseEmbodimentAdapter):
     active_ranges = ((0, 14), (28, 30))
     qpose_reconstruction = 'unified[0:14] + unified[28:30]'
     source_format = 'LeRobot v2.1 franka_dual episodes'
-    conversion_description = 'streaming LeRobot v2.1 to canonical unified 107D'
+    conversion_description = 'streaming LeRobot v2.1 to canonical unified 128D'
     video_materialization = 'direct_streaming_encode'
     training_readiness_blockers = (
         'raw action and target provenance are unavailable in this export',
@@ -204,9 +204,9 @@ class FrankaDualAdapter(BaseEmbodimentAdapter):
             mask[:, 14:28] = True
 
         return {
-            'observation.unified_107d':
+            'observation.unified_128d':
             unified,
-            'observation.unified_107d_mask':
+            'observation.unified_128d_mask':
             mask,
             'observation.ego2cam':
             np.full(
@@ -233,7 +233,7 @@ class FrankaDualAdapter(BaseEmbodimentAdapter):
             mask = _state_mask(episode.length)
             source = TARGET_SOURCE[self.action_source]
         return {
-            'target.unified_107d': values,
-            'target.unified_107d_mask': mask,
+            'target.unified_128d': values,
+            'target.unified_128d_mask': mask,
             'target.source': np.full(episode.length, source, dtype=np.int8),
         }

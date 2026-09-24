@@ -6,25 +6,25 @@ from mmengine import Config
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = {
     'conversion': REPO_ROOT / 'configs' / 'conversion' /
-    'agilex_aloha_hdf_to_canonical_107d.py',
+    'agilex_aloha_hdf_to_canonical_128d.py',
     'synthesis':
     REPO_ROOT / 'configs' / 'synthesis' / 'qwen_robotmanip_ego_to_robot.py',
     'annotation':
     REPO_ROOT / 'configs' / 'annotation' / 'canonical_auto_annotation.py',
-    'validation': REPO_ROOT / 'configs' / 'validation' / 'canonical_107d.py',
+    'validation': REPO_ROOT / 'configs' / 'validation' / 'canonical_128d.py',
 }
 
 REBOT_CONFIG = (
     REPO_ROOT / 'configs' / 'conversion' /
-    'rebot_dual_lerobot_v3_to_canonical_107d.py')
+    'rebot_dual_lerobot_v3_to_canonical_128d.py')
 
 LEROBOT_V2_CONFIG = (
     REPO_ROOT / 'configs' / 'conversion' /
-    'agilex_aloha_lerobot_v2_to_canonical_107d.py')
+    'agilex_aloha_lerobot_v2_to_canonical_128d.py')
 
 FRANKA_CONFIG = (
     REPO_ROOT / 'configs' / 'conversion' /
-    'franka_dual_lerobot_v2_to_canonical_107d.py')
+    'franka_dual_lerobot_v2_to_canonical_128d.py')
 
 
 @pytest.mark.parametrize('expected_kind,config_path', CONFIGS.items())
@@ -94,6 +94,6 @@ def test_franka_config_maps_cameras_and_keeps_filter_disabled():
     assert cfg.pipeline.source.camera_mapping['cam_high'] == (
         'observation.images.cam_front')
     assert cfg.pipeline.embodiment.type == 'FrankaDualAdapter'
-    assert cfg.pipeline.stages[1].type == 'MapFrankaToCanonical107D'
+    assert cfg.pipeline.stages[1].type == 'MapFrankaToCanonical128D'
     assert cfg.pipeline.stages[2].type == 'FilterStaticFrames'
     assert cfg.pipeline.stages[2].enabled is False

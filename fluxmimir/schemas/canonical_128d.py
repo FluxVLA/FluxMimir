@@ -3,18 +3,18 @@ from dataclasses import dataclass
 from .base import DatasetSchema, FeatureSpec
 
 SCHEMA_ID = 'agilex_aloha_unified'
-SCHEMA_VERSION = '1.1.0'
-LAYOUT_ID = 'lingbot_vla2_dexhand32x2_107_v1'
-UNIFIED_DIM = 107
+SCHEMA_VERSION = '2.0.0'
+LAYOUT_ID = 'lingbot_vla2_dexhand32x2_128_v1'
+UNIFIED_DIM = 128
 CAMERA_ORDER = ('cam_high', 'cam_left_wrist', 'cam_right_wrist')
 
 PARQUET_COLUMNS = (
-    'observation.unified_107d',
-    'observation.unified_107d_mask',
+    'observation.unified_128d',
+    'observation.unified_128d_mask',
     'observation.ego2cam',
     'observation.ego2cam_valid',
-    'target.unified_107d',
-    'target.unified_107d_mask',
+    'target.unified_128d',
+    'target.unified_128d_mask',
     'target.source',
     'timestamp',
     'frame_index',
@@ -64,20 +64,23 @@ LAYOUT_RANGES = (
     LayoutRange('waist_position', 94, 98),
     LayoutRange('head_position', 98, 100),
     LayoutRange('mobile_base_signal', 100, 103),
-    LayoutRange('reserved', 103, 107),
+    LayoutRange('left_leg_joint_position', 103, 109, 'rad'),
+    LayoutRange('right_leg_joint_position', 109, 115, 'rad'),
+    LayoutRange('mobile_base_rotation_6d', 115, 121),
+    LayoutRange('reserved', 121, 128),
 )
 
-CANONICAL_107D_SCHEMA = DatasetSchema(
+CANONICAL_128D_SCHEMA = DatasetSchema(
     schema_id=SCHEMA_ID,
     schema_version=SCHEMA_VERSION,
     layout_id=LAYOUT_ID,
     features=(
-        FeatureSpec('observation.unified_107d', 'float32', (107, )),
-        FeatureSpec('observation.unified_107d_mask', 'bool', (107, )),
+        FeatureSpec('observation.unified_128d', 'float32', (UNIFIED_DIM, )),
+        FeatureSpec('observation.unified_128d_mask', 'bool', (UNIFIED_DIM, )),
         FeatureSpec('observation.ego2cam', 'float32', (3, 4, 4)),
         FeatureSpec('observation.ego2cam_valid', 'bool', (3, )),
-        FeatureSpec('target.unified_107d', 'float32', (107, )),
-        FeatureSpec('target.unified_107d_mask', 'bool', (107, )),
+        FeatureSpec('target.unified_128d', 'float32', (UNIFIED_DIM, )),
+        FeatureSpec('target.unified_128d_mask', 'bool', (UNIFIED_DIM, )),
         FeatureSpec('target.source', 'int8', ()),
         FeatureSpec('timestamp', 'float32', ()),
         FeatureSpec('frame_index', 'int64', ()),
