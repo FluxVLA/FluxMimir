@@ -5,15 +5,15 @@ FluxMimir 是 Flux 系列中负责离线数据工作的 codebase：将机器人�
 FluxVLA 提供可审计的自动标注。
 
 > **当前状态：** 已实现 AgileX ALOHA HDF 和 ReBot dual LeRobot v3 到各自
-> 版本化 canonical 107D Parquet 的可执行转换，包括 MP4 物化、metadata、
+> 版本化 canonical 128D Parquet 的可执行转换，包括 MP4 物化、metadata、
 > mask-aware 统计、manifest 和落盘校验；视觉合成与自动标注 backend 仍处于
 > 框架阶段。
 
 ## 三条能力线
 
 1. 将 AgileX ALOHA HDF episode 转换为
-   `agilex_aloha_unified@1.1.0`，并将 ReBot dual LeRobot v3 episode 转换为
-   `rebot_dual_unified@1.0.0`；两者保留各自的单位和 target provenance。
+   `agilex_aloha_unified@2.0.0`，并将 ReBot dual LeRobot v3 episode 转换为
+   `rebot_dual_unified@2.0.0`；两者保留各自的单位和 target provenance。
 2. 按 Qwen-RobotManip 思路搭建轨迹重定向、人体区域分割、时序修复、机械臂
    IK/渲染、深度估计与遮挡合成的可替换 backend 链。
 3. 通过 provider-neutral API 接口生成 task、subtask 和具身推理标注，并保留
@@ -31,12 +31,12 @@ cd /root/projects/FluxMimir
 pip install -e '.[conversion,vision,api,dev]'
 
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_hdf_to_canonical_107d.py --dry-run
+  configs/conversion/agilex_aloha_hdf_to_canonical_128d.py --dry-run
 fluxmimir-synthesize \
   configs/synthesis/qwen_robotmanip_ego_to_robot.py --dry-run
 fluxmimir-annotate \
   configs/annotation/canonical_auto_annotation.py --dry-run
-fluxmimir-validate configs/validation/canonical_107d.py --dry-run
+fluxmimir-validate configs/validation/canonical_128d.py --dry-run
 ```
 
 真实转换需要显式传入 `--execute`。用户提供的 raw 根目录包含约 2.9 万个大
@@ -44,7 +44,7 @@ HDF，建议先只转换一个 episode：
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_hdf_to_canonical_107d.py \
+  configs/conversion/agilex_aloha_hdf_to_canonical_128d.py \
   --execute \
   --cfg-options \
   pipeline.source.max_episodes=1 \
@@ -58,7 +58,7 @@ fluxmimir-convert \
 ## 文档
 
 - [架构与职责边界](docs/architecture.md)
-- [Canonical 107D 数据契约](docs/data_contract.md)
+- [Canonical 128D 数据契约](docs/data_contract.md)
 - [数据转换规划与审计](docs/conversion.md)
 - [Ego-to-robot 合成规划](docs/synthesis.md)
 - [自动标注规划](docs/annotation.md)
