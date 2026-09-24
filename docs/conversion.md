@@ -557,3 +557,17 @@ keeps the previous ffmpeg options byte-identical for the v2.1 configs.
 types, contiguous frame and dataset indices, one episode row per data file,
 `meta/tasks.parquet` coverage of the episode tasks, `meta/stats.json` counts
 against the masks, and video file alignment.
+
+Oli conversion (`configs/conversion/oli_lerobot_v2_to_canonical_v30.py`) uses
+the same writer over the Oli source; the production episodes already carry
+libx264/veryfast/crf18 video, so it copies the source MP4 instead of
+re-encoding:
+
+```bash
+fluxmimir-convert \
+  configs/conversion/oli_lerobot_v2_to_canonical_v30.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/oli_v30_smoke
+```
