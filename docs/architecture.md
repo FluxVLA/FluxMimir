@@ -88,7 +88,7 @@ pipeline = dict(
     kind='conversion',
     runner=dict(type='PipelineRunner'),
     source=dict(type='AlohaHDF5Source'),
-    stages=[dict(type='MapAlohaToCanonical107D')],
+    stages=[dict(type='MapAlohaToCanonical128D')],
     writer=dict(type='CanonicalDatasetWriter'),
     validators=[dict(type='CanonicalParquetSchemaValidator')],
 )
@@ -105,7 +105,7 @@ provenance for every artifact.
 
 HDF discovery and physical decoding belong to `sources`; left/right ordering,
 units, target provenance, and camera frames belong to `embodiments`; the exact
-12-column/107D contract belongs to `schemas`; encoding belongs to `media`; and
+12-column/128D contract belongs to `schemas`; encoding belongs to `media`; and
 Parquet/video/metadata publication belongs to `writers`.
 
 ### Ego-to-robot synthesis
