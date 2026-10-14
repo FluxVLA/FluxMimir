@@ -1,8 +1,10 @@
+import argparse
 from pathlib import Path
 
 import pytest
 
 from fluxmimir.cli.annotate import main as annotate_main
+from fluxmimir.cli.common import load_config
 from fluxmimir.cli.convert import main as convert_main
 from fluxmimir.cli.synthesize import main as synthesize_main
 from fluxmimir.cli.validate import main as validate_main
@@ -51,3 +53,48 @@ def test_execution_is_explicitly_unavailable(capsys):
     assert convert_main([str(config_path)]) == 2
     captured = capsys.readouterr()
     assert 'intentionally unavailable' in captured.err
+
+
+def _conversion_args(config_path, **overrides):
+    args = dict(
+        config=config_path,
+        cfg_options=None,
+        raw_root=None,
+        output_root=None,
+        dry_run=True,
+    )
+    args.update(overrides)
+    return argparse.Namespace(**args)
+
+
+def test_root_flags_override_source_and_writer(tmp_path):
+    cfg = load_config(
+        _conversion_args(
+            CASES[0][1],
+            raw_root=str(tmp_path / 'raw'),
+            output_root=str(tmp_path / 'out'),
+        ), 'conversion')
+
+    assert cfg.pipeline.source.root == str(tmp_path / 'raw')
+    assert cfg.pipeline.writer.root == str(tmp_path / 'out')
+
+
+def test_root_flags_win_over_cfg_options():
+    cfg = load_config(
+        _conversion_args(
+            CASES[0][1],
+            cfg_options={'pipeline.source.root': '/from/cfg_options'},
+            raw_root='/from/raw_root_flag',
+        ), 'conversion')
+
+    assert cfg.pipeline.source.root == '/from/raw_root_flag'
+
+
+def test_output_root_is_rejected_without_a_writer_root():
+    with pytest.raises(ValueError, match='--output-root'):
+        validate_main([
+            str(CASES[3][1]),
+            '--output-root',
+            '/tmp/validation_report',
+            '--dry-run',
+        ])

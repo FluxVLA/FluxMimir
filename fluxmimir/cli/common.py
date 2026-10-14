@@ -16,12 +16,43 @@ def build_parser(command: str, description: str) -> argparse.ArgumentParser:
         help='Override config values, for example pipeline.runner.workers=2',
     )
     parser.add_argument(
+        '--raw-root',
+        metavar='PATH',
+        help=('Override the input root (pipeline.source.root, the raw_root / '
+              'source_root / dataset_root variable of the config). Wins over '
+              'FLUXMIMIR_* environment variables and --cfg-options.'),
+    )
+    parser.add_argument(
+        '--output-root',
+        metavar='PATH',
+        help=('Override the release output root (pipeline.writer.root, the '
+              'output_root variable of the config). Wins over FLUXMIMIR_* '
+              'environment variables and --cfg-options.'),
+    )
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Load and inspect the plan without executing data operations',
     )
     parser.set_defaults(command=command)
     return parser
+
+
+def apply_root_overrides(cfg: Config, args: argparse.Namespace) -> None:
+    """Apply the runtime --raw-root / --output-root overrides.
+
+    They run after --cfg-options so an explicit path argument wins over a
+    generic config patch.
+    """
+    if args.raw_root:
+        cfg.pipeline.source.root = args.raw_root
+    if args.output_root:
+        writer = cfg.pipeline.get('writer')
+        if not isinstance(writer, dict) or 'root' not in writer:
+            raise ValueError(
+                '--output-root is unsupported for pipeline.kind='
+                f'{cfg.pipeline.get("kind")!r}: its writer has no `root`')
+        cfg.pipeline.writer.root = args.output_root
 
 
 def load_config(args: argparse.Namespace, expected_kind: str) -> Config:
@@ -39,6 +70,7 @@ def load_config(args: argparse.Namespace, expected_kind: str) -> Config:
     if kind != expected_kind:
         raise ValueError(
             f'expected pipeline.kind={expected_kind!r}, got {kind!r}')
+    apply_root_overrides(cfg, args)
     return cfg
 
 

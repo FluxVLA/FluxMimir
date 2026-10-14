@@ -334,6 +334,15 @@ It does not enable raw action targets before confirmation, infer eepose from
 qpos, generate ego2cam, interpret `uint8` depth, perform automated annotation,
 claim `training_ready=true`, or replace/delete an immutable release.
 
+### 9.1 Path overrides
+
+`--raw-root PATH` and `--output-root PATH` override `pipeline.source.root` and
+`pipeline.writer.root` at run time, on top of the config defaults, the
+`FLUXMIMIR_*` environment variables, and `--cfg-options`, in that order.
+`--raw-root` matches whichever variable the config declares (`raw_root`,
+`source_root`, `dataset_root`); `--output-root` is rejected for pipelines whose
+writer owns no root, such as `fluxmimir-validate`.
+
 ## 10. ReBot dual LeRobot v3 conversion
 
 `rebot_dual_unified@1.0.0` converts ReBot B601 dual-arm LeRobot v3 data into
