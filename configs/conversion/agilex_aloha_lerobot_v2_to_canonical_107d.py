@@ -46,6 +46,19 @@ pipeline = dict(
     stages=[
         dict(type='ProbeSourceSchema'),
         dict(type='MapAlohaToCanonical107D'),
+        # Static frame filtering is opt-in. Start with policy='report' and
+        # inspect work_dir/static_frames.jsonl before dropping episodes.
+        dict(
+            type='FilterStaticFrames',
+            enabled=False,
+            policy='report',
+            static_frame_threshold=50,
+            signals=('observation', 'target'),
+            groups=('arm_joint_position', 'gripper_position'),
+            step_threshold=dict(
+                arm_joint_position=1.0e-4, gripper_position=1.5e-4),
+            audit_name='static_frames.jsonl',
+        ),
         dict(
             type='EncodeEpisodeVideos',
             codec='source',

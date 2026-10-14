@@ -116,19 +116,22 @@ class PipelineRunner(BaseRunner):
         assert self._context is not None
         references = list(self.source.discover())
         global_index = 0
+        episode_index = 0
         artifact_count = 0
         warning_count = 0
+        skipped_count = 0
         try:
             from tqdm.auto import tqdm
             iterator = tqdm(references, desc='Converting episodes', unit='ep')
         except ImportError:  # pragma: no cover
             iterator = references
-        for episode_index, reference in enumerate(iterator):
+        for reference in iterator:
             episode = self.source.open_episode(reference)
             context = self._episode_context(episode_index, global_index)
             value: Any = episode
             warnings: list[str] = []
             provenance: dict[str, Any] = {}
+            skipped = False
             for stage in self.stages:
                 stage_result = stage.process(value, context)
                 if not isinstance(stage_result, StageResult):
@@ -137,12 +140,20 @@ class PipelineRunner(BaseRunner):
                 value = stage_result.value
                 warnings.extend(stage_result.warnings)
                 provenance.update(stage_result.provenance)
+                if stage_result.skipped:
+                    skipped = True
+                    break
+            if skipped:
+                skipped_count += 1
+                warning_count += len(warnings)
+                continue
             final_result = StageResult(
                 value=value, warnings=tuple(warnings), provenance=provenance)
             artifacts = self.writer.write_episode(episode, final_result)
             artifact_count += len(artifacts)
             warning_count += len(warnings)
             global_index += episode.length
+            episode_index += 1
 
         final_metadata = {
             **self._context.metadata,
@@ -171,7 +182,9 @@ class PipelineRunner(BaseRunner):
         return {
             'run_id': self._context.run_id,
             'output_root': str(self.writer.root),
-            'episodes': len(references),
+            'episodes': episode_index,
+            'discovered_episodes': len(references),
+            'skipped_episodes': skipped_count,
             'frames': global_index,
             'artifacts': artifact_count + 1,
             'warnings': warning_count,

@@ -4,6 +4,7 @@ from .conversion import *  # noqa: F401,F403,E402
 from .embodiments import *  # noqa: F401,F403,E402
 from .engines import *  # noqa: F401,F403,E402
 from .media import *  # noqa: F401,F403,E402
+from .quality import *  # noqa: F401,F403,E402
 from .schemas import *  # noqa: F401,F403,E402
 from .sources import *  # noqa: F401,F403,E402
 from .structures import (ArtifactRecord, EpisodeRef, IssueSeverity,

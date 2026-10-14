@@ -64,4 +64,21 @@ def test_lerobot_v2_config_reads_optional_modalities():
     assert cfg.pipeline.source.camera_mapping['cam_high'] == (
         'observation.images.cam_high')
     assert cfg.pipeline.source.eepose_key == 'observation.eepose'
-    assert cfg.pipeline.stages[2].mode == 'copy'
+    assert cfg.pipeline.stages[3].mode == 'copy'
+
+
+def test_aloha_config_keeps_static_frame_filter_disabled():
+    cfg = Config.fromfile(CONFIGS['conversion'])
+    stage = cfg.pipeline.stages[2]
+
+    assert stage.type == 'FilterStaticFrames'
+    assert stage.enabled is False
+    assert stage.audit_name == 'static_frames.jsonl'
+
+
+def test_lerobot_v2_config_keeps_static_frame_filter_disabled():
+    cfg = Config.fromfile(LEROBOT_V2_CONFIG)
+    stage = cfg.pipeline.stages[2]
+
+    assert stage.type == 'FilterStaticFrames'
+    assert stage.enabled is False
