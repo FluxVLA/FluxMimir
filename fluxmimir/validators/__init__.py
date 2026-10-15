@@ -4,11 +4,12 @@ from .canonical import (ArtifactManifestValidator,
                         ForeignKeyClosureValidator, MaskedStatisticsValidator,
                         SourceSemanticsValidator, UnifiedMaskValidator,
                         VideoAlignmentValidator)
+from .canonical_v30 import CanonicalV30LayoutValidator
 
 __all__ = [
     'ArtifactManifestValidator', 'BaseValidator',
-    'CanonicalParquetSchemaValidator', 'EpisodeIndexValidator',
-    'ForeignKeyClosureValidator', 'MaskedStatisticsValidator',
-    'SourceSemanticsValidator', 'UnifiedMaskValidator',
-    'VideoAlignmentValidator'
+    'CanonicalParquetSchemaValidator', 'CanonicalV30LayoutValidator',
+    'EpisodeIndexValidator', 'ForeignKeyClosureValidator',
+    'MaskedStatisticsValidator', 'SourceSemanticsValidator',
+    'UnifiedMaskValidator', 'VideoAlignmentValidator'
 ]

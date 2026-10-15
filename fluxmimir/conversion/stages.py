@@ -185,6 +185,7 @@ class EncodeEpisodeVideos(BaseStage):
                  enabled: bool = True,
                  crf: int = 23,
                  gop_size: int = 30,
+                 preset: str | None = None,
                  mode: str = 'encode') -> None:
         if mode not in {'encode', 'copy'}:
             raise ValueError(f'unsupported video mode: {mode}')
@@ -195,6 +196,7 @@ class EncodeEpisodeVideos(BaseStage):
             'frame_count_must_match': bool(frame_count_must_match),
             'crf': int(crf),
             'gop_size': int(gop_size),
+            'preset': None if preset is None else str(preset),
             'mode': mode,
         }
 
