@@ -261,3 +261,7 @@ def test_franka_lerobot_v2_end_to_end(tmp_path):
     info = json.loads((output / 'meta/info.json').read_text())
     assert info['schema_id'] == 'franka_dual_unified'
     assert info['embodiment_id'] == 'franka_dual'
+    assert info['ego2cam_contract']['camera_order'] == list(CAMERA_ORDER)
+    assert info['ego2cam_contract']['shape'] == [3, 4, 4]
+    assert info['features']['observation.ego2cam']['shape'] == [3, 4, 4]
+    assert info['features']['observation.ego2cam_valid']['shape'] == [3]

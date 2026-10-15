@@ -5,7 +5,8 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.embodiments import (AgileXAlohaAdapter, BaseEmbodimentAdapter,
-                                   FrankaDualAdapter, ReBotDualAdapter)
+                                   FrankaDualAdapter, OliAdapter,
+                                   ReBotDualAdapter)
 from fluxmimir.engines.stages import BaseStage
 from fluxmimir.engines.utils import STAGES
 from fluxmimir.schemas import UNIFIED_DIM
@@ -166,6 +167,15 @@ class MapFrankaToCanonical128D(MapAlohaToCanonical128D):
 
 
 @STAGES.register_module()
+class MapOliToCanonical128D(MapAlohaToCanonical128D):
+    """Map LimX Oli records with the source-neutral 128D machinery."""
+
+    def __init__(self,
+                 embodiment: BaseEmbodimentAdapter | None = None) -> None:
+        super().__init__(embodiment=embodiment or OliAdapter())
+
+
+@STAGES.register_module()
 class EncodeEpisodeVideos(BaseStage):
 
     def __init__(self,
@@ -175,6 +185,7 @@ class EncodeEpisodeVideos(BaseStage):
                  enabled: bool = True,
                  crf: int = 23,
                  gop_size: int = 30,
+                 preset: str | None = None,
                  mode: str = 'encode') -> None:
         if mode not in {'encode', 'copy'}:
             raise ValueError(f'unsupported video mode: {mode}')
@@ -185,6 +196,7 @@ class EncodeEpisodeVideos(BaseStage):
             'frame_count_must_match': bool(frame_count_must_match),
             'crf': int(crf),
             'gop_size': int(gop_size),
+            'preset': None if preset is None else str(preset),
             'mode': mode,
         }
 

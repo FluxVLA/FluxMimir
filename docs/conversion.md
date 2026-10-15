@@ -511,3 +511,63 @@ Override input and output paths through `FLUXMIMIR_RAW_ROOT` and
 `work_dirs/datasets/franka_dual_128d`. The release stays `training_ready=false`
 because the export has no action provenance, no calibrated ego2cam, no hardware
 timestamps, and no frame-level subtasks. `FilterStaticFrames` ships disabled.
+
+## 14. LeRobot v3.0 layout
+
+`CanonicalDatasetV30Writer` writes the same canonical 12-column 128D content as
+`CanonicalDatasetWriter`, but under the LeRobot v3.0 file layout. One episode
+per file is kept, so each chunk holds up to `chunks_size` episodes and the
+`file-XXX` ordinal is per chunk.
+
+| Item | v2.1 layout | v3.0 layout |
+|---|---|---|
+| Data | `data/chunk-{c:03d}/episode_{i:06d}.parquet` | `data/chunk-{c:03d}/file-{f:03d}.parquet` |
+| Video | `videos/chunk-{c:03d}/observation.images.{cam}/episode_{i:06d}.mp4` | `videos/observation.images.{cam}/chunk-{c:03d}/file-{f:03d}.mp4` |
+| Episodes | `meta/episodes.jsonl` | `meta/episodes/chunk-{c:03d}/file-{f:03d}.parquet`, one row per episode |
+| Tasks | `meta/tasks.jsonl` | `meta/tasks.parquet` |
+| Statistics | `meta/episodes_stats.jsonl` | `meta/stats.json` pooled over episodes, plus `stats/*` columns in the episode metadata |
+| Info | `codebase_version=v2.1` | `codebase_version=v3.0`, `data_files_size_in_mb=100`, `video_files_size_in_mb=200`, no `total_chunks`/`total_videos` |
+
+An episode metadata row carries `episode_index`, `tasks`, `length`,
+`data/chunk_index`, `data/file_index`, `dataset_from_index`,
+`dataset_to_index`, `videos/{key}/{chunk_index,file_index,from_timestamp,to_timestamp}`
+and `stats/{feature}/{min,max,mean,std,q01,q99,count}`. `meta/stats.json` holds
+the pooled `min`/`max`/`mean`/`std` and the per-dimension `count` over all
+episodes; quantiles stay per episode.
+
+Mimir publish conventions are unchanged: `meta/fluxvla_dataset_version.json`,
+`meta/artifacts.sha256.json` and the `meta/subtasks.jsonl` annotation file are
+written by both layouts. As with v2.1, the product holds canonical content, so
+consumers read it through the canonical contract and not through the native
+LeRobot reader.
+
+```bash
+fluxmimir-convert \
+  configs/conversion/agilex_aloha_hdf_to_canonical_v30.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/aloha_v30_smoke
+```
+
+The config passes `preset='veryfast'` and `crf=18` to `EncodeEpisodeVideos`,
+matching the production Oli v3.0 encoding; `preset` defaults to `None`, which
+keeps the previous ffmpeg options byte-identical for the v2.1 configs.
+`CanonicalV30LayoutValidator` validates the layout: canonical columns and
+types, contiguous frame and dataset indices, one episode row per data file,
+`meta/tasks.parquet` coverage of the episode tasks, `meta/stats.json` counts
+against the masks, and video file alignment.
+
+Oli conversion (`configs/conversion/oli_lerobot_v2_to_canonical_v30.py`) uses
+the same writer over the Oli source; the production episodes already carry
+libx264/veryfast/crf18 video, so it copies the source MP4 instead of
+re-encoding:
+
+```bash
+fluxmimir-convert \
+  configs/conversion/oli_lerobot_v2_to_canonical_v30.py \
+  --execute \
+  --cfg-options \
+  pipeline.source.max_episodes=1 \
+  pipeline.writer.root=/tmp/oli_v30_smoke
+```

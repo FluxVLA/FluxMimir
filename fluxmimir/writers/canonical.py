@@ -11,7 +11,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from fluxmimir.conversion import EpisodeRecord, masked_statistics
-from fluxmimir.embodiments import SOURCE_CAMERAS, BaseEmbodimentAdapter
+from fluxmimir.embodiments import BaseEmbodimentAdapter
 from fluxmimir.engines.utils import WRITERS
 from fluxmimir.schemas import PARQUET_COLUMNS, TARGET_SOURCE, UNIFIED_DIM
 from fluxmimir.structures import ArtifactRecord, PipelineContext, StageResult
@@ -178,6 +178,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         self.publish_manifest = bool(publish_manifest)
         self.in_place = bool(in_place)
         self.embodiment = embodiment
+        self.camera_order = tuple(embodiment.camera_order)
         self.schema_id = self.embodiment.schema_id
         self.schema_version = self.embodiment.schema_version
         self.layout_id = self.embodiment.layout_id
@@ -212,13 +213,14 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         return (self.root / f'videos/chunk-{chunk:03d}' / key /
                 f'episode_{episode_index:06d}.mp4')
 
-    @staticmethod
-    def _validate_canonical(value: Mapping[str, Any], length: int) -> None:
+    def _validate_canonical(self, value: Mapping[str, Any],
+                            length: int) -> None:
+        camera_count = len(self.camera_order)
         shapes = {
             'observation.unified_128d': (length, UNIFIED_DIM),
             'observation.unified_128d_mask': (length, UNIFIED_DIM),
-            'observation.ego2cam': (length, len(SOURCE_CAMERAS), 4, 4),
-            'observation.ego2cam_valid': (length, len(SOURCE_CAMERAS)),
+            'observation.ego2cam': (length, camera_count, 4, 4),
+            'observation.ego2cam_valid': (length, camera_count),
             'target.unified_128d': (length, UNIFIED_DIM),
             'target.unified_128d_mask': (length, UNIFIED_DIM),
             'target.source': (length, ),
@@ -303,6 +305,13 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 return candidate
         raise ValueError(f'PyAV has no encoder for requested codec {codec!r}')
 
+    @staticmethod
+    def _video_options(spec: Mapping[str, Any]) -> dict[str, str]:
+        options = {'crf': str(spec['crf']), 'g': str(spec['gop_size'])}
+        if spec.get('preset'):
+            options['preset'] = str(spec['preset'])
+        return options
+
     def _encode_video(self, path: Path, reader: Any,
                       spec: Mapping[str, Any]) -> tuple[int, int]:
         try:
@@ -320,10 +329,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             codec = self._video_codec(str(spec['codec']), av.codecs_available)
             stream = container.add_stream(codec, rate=int(spec['fps']))
             stream.pix_fmt = 'yuv420p'
-            stream.options = {
-                'crf': str(spec['crf']),
-                'g': str(spec['gop_size']),
-            }
+            stream.options = self._video_options(spec)
             for image in reader:
                 image = np.asarray(image)
                 if image.ndim != 3 or image.shape[-1] not in (1, 3):
@@ -408,7 +414,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
 
         video_spec = value.get('_video_encoding', {'enabled': False})
         if video_spec.get('enabled'):
-            for camera in SOURCE_CAMERAS:
+            for camera in self.camera_order:
                 if camera not in episode.media:
                     raise ValueError(
                         f'{episode.ref.source_uri}: missing {camera}')
@@ -538,12 +544,12 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             },
             'observation.ego2cam': {
                 'dtype': 'float32',
-                'shape': [3, 4, 4],
+                'shape': [len(self.camera_order), 4, 4],
                 'names': None,
             },
             'observation.ego2cam_valid': {
                 'dtype': 'bool',
-                'shape': [3],
+                'shape': [len(self.camera_order)],
                 'names': None,
             },
             'target.unified_128d': {
@@ -694,8 +700,8 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'ego2cam_contract': {
                 'column': 'observation.ego2cam',
                 'validity_column': 'observation.ego2cam_valid',
-                'camera_order': list(SOURCE_CAMERAS),
-                'shape': [3, 4, 4],
+                'camera_order': list(self.camera_order),
+                'shape': [len(self.camera_order), 4, 4],
                 'matrix_convention': 'T_camera_from_ego',
                 'equation': 'p_camera = T_camera_from_ego @ p_ego',
                 'ego_frame': 'base_link',
@@ -796,29 +802,24 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
         _write_json(manifest_path, manifest)
         return manifest_path
 
-    def finalize(self, metadata: Mapping[str, Any]) -> ArtifactRecord:
-        if not self.episodes:
-            raise RuntimeError('cannot finalize a dataset with no episodes')
-        indices = sorted(item['episode_index'] for item in self.episodes)
-        if indices != list(range(len(indices))):
-            raise ValueError(f'episode indices are not contiguous: {indices}')
-        self.episodes.sort(key=lambda item: item['episode_index'])
-        self.episode_stats.sort(key=lambda item: item['episode_index'])
-
+    def _tasks(self) -> list[dict[str, Any]]:
         tasks = sorted(
             self.tasks.values(), key=lambda item: item['task_index'])
-        if not tasks:
-            tasks = [{
-                'task_index': 0,
-                'task_id': 'task_00_unknown_episode_level_task',
-                'task': 'unknown episode-level task',
-                'language': 'en',
-                'placeholder_status': 'placeholder_unavailable',
-                'annotation_provenance': {
-                    'source': self.embodiment.unavailable_annotation_source
-                },
-            }]
-        subtasks = [{
+        if tasks:
+            return tasks
+        return [{
+            'task_index': 0,
+            'task_id': 'task_00_unknown_episode_level_task',
+            'task': 'unknown episode-level task',
+            'language': 'en',
+            'placeholder_status': 'placeholder_unavailable',
+            'annotation_provenance': {
+                'source': self.embodiment.unavailable_annotation_source
+            },
+        }]
+
+    def _subtasks(self) -> list[dict[str, Any]]:
+        return [{
             'subtask_index': 0,
             'subtask_id': 'subtask_00_unknown',
             'subtask': 'unknown',
@@ -828,6 +829,27 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
                 'source': self.embodiment.unavailable_annotation_source
             },
         }]
+
+    def _write_metadata(self, info: dict[str, Any], version: dict[str, Any],
+                        tasks: list[dict[str, Any]],
+                        subtasks: list[dict[str, Any]]) -> None:
+        _write_json(self.root / 'meta/info.json', info)
+        _write_json(self.root / 'meta/fluxvla_dataset_version.json', version)
+        _write_jsonl(self.root / 'meta/tasks.jsonl', tasks)
+        _write_jsonl(self.root / 'meta/subtasks.jsonl', subtasks)
+        _write_jsonl(self.root / 'meta/episodes.jsonl', self.episodes)
+        _write_jsonl(self.root / 'meta/episodes_stats.jsonl',
+                     self.episode_stats)
+
+    def finalize(self, metadata: Mapping[str, Any]) -> ArtifactRecord:
+        if not self.episodes:
+            raise RuntimeError('cannot finalize a dataset with no episodes')
+        indices = sorted(item['episode_index'] for item in self.episodes)
+        if indices != list(range(len(indices))):
+            raise ValueError(f'episode indices are not contiguous: {indices}')
+        self.episodes.sort(key=lambda item: item['episode_index'])
+        self.episode_stats.sort(key=lambda item: item['episode_index'])
+
         info = self._build_info(metadata)
         released_at = datetime.now(timezone.utc).replace(
             microsecond=0).isoformat().replace('+00:00', 'Z')
@@ -844,13 +866,7 @@ class CanonicalDatasetWriter(BaseCanonicalDatasetWriter):
             'immutable_release': True,
             'content_manifest': 'meta/artifacts.sha256.json',
         }
-        _write_json(self.root / 'meta/info.json', info)
-        _write_json(self.root / 'meta/fluxvla_dataset_version.json', version)
-        _write_jsonl(self.root / 'meta/tasks.jsonl', tasks)
-        _write_jsonl(self.root / 'meta/subtasks.jsonl', subtasks)
-        _write_jsonl(self.root / 'meta/episodes.jsonl', self.episodes)
-        _write_jsonl(self.root / 'meta/episodes_stats.jsonl',
-                     self.episode_stats)
+        self._write_metadata(info, version, self._tasks(), self._subtasks())
         if self.publish_manifest:
             manifest = self._write_manifest(info)
             return ArtifactRecord('manifest', str(manifest), _sha256(manifest))

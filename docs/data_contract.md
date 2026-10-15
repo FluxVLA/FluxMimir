@@ -160,8 +160,10 @@ completely invalid dimension has `count=0`.
 
 ### 5.1 `ego2cam`
 
-- camera order: `cam_high`, `cam_left_wrist`, `cam_right_wrist`
-- shape: `[3,4,4]`
+- camera order: declared by the embodiment (`camera_order`); the ALOHA,
+  dual-Franka, and dual-ReBot profiles keep `cam_high`, `cam_left_wrist`,
+  `cam_right_wrist`
+- shape: `[camera_count,4,4]`, with `camera_count = len(camera_order)`
 - convention: `T_camera_from_ego`
 - equation: `p_camera = T_camera_from_ego @ p_ego`
 - ego frame: `base_link`
@@ -292,3 +294,43 @@ positions. It therefore uses a distinct data-contract identity:
 See [`conversion.md`](conversion.md) for the mapping and confirmed target
 provenance. Consumers that support only `agilex_aloha_unified` must reject the
 ReBot profile; sharing 128 dimensions does not imply unit compatibility.
+
+## 11. Oli profile
+
+LimX Oli humanoid data is recorded as a LeRobot v2.1 dataset with
+`observation.state` `float32[33]`, `action` `float32[42]`, 30 fps, and two
+cameras: `head` and `left_wrist`. It uses a distinct data-contract identity:
+
+- schema id: `oli_unified`
+- schema version: `1.0.0`
+- layout id: `oli_128_v1`
+- embodiment id: `oli`
+- camera order: `head`, `left_wrist` (`ego2cam` shape `[2,4,4]`)
+- target source: `operator` when the config confirms issued joint targets
+
+The source `observation.state` order is the six left leg joints, the six right
+leg joints, waist yaw/roll/pitch, head yaw/pitch, the 14 arm joints, and the two
+hand-closed values. The 42D `action` adds `base_pos_cmd_x/y/z`,
+`base_rot6d_0..5`, and uses the `joint_cmd_*` prefix for the 31 joint commands.
+
+| Unified range | Slot | `observation.state` | `action` |
+| --- | --- | --- | --- |
+| `[0,14)` | arms | `[17:31]` | `[17:31]` |
+| `[14,28)` | eef pose | `mask=false` | `mask=false` |
+| `[28,30)` | gripper | `[31:33]` | `[40:42]` |
+| `[30,62)` | left dexhand | `mask=false` | `mask=false` |
+| `[62,94)` | right dexhand | `mask=false` | `mask=false` |
+| `[94,98)` | waist | `[12:15]` | `[12:15]` |
+| `[98,100)` | head | `[15:17]` | `[15:17]` |
+| `[100,103)` | base position | `mask=false` | `[31:34]` |
+| `[103,109)` | left leg | `[0:6]` | `[0:6]` |
+| `[109,115)` | right leg | `[6:12]` | `[6:12]` |
+| `[115,121)` | base rotation 6D | `mask=false` | `[34:40]` |
+| `[121,128)` | reserved | `0.0`, `mask=false` | `0.0`, `mask=false` |
+
+`unified[97]` is the fourth waist slot: it has no source dimension and stays
+`0.0` with `mask=false`. The `action` column is the issued joint command only
+when the conversion config declares `action_semantics=issued_joint_position_target`;
+otherwise every target dimension stays masked. Slot names come from the
+production `meta/info.json` joint names, which the adapter's preflight checks
+against the recorded state joint order.

@@ -35,8 +35,11 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _parquet_files(root: Path) -> list[Path]:
-    return sorted((root / 'data').glob('chunk-*/episode_*.parquet'))
+DATA_PATTERN = 'chunk-*/episode_*.parquet'
+
+
+def _parquet_files(root: Path, pattern: str = DATA_PATTERN) -> list[Path]:
+    return sorted((root / 'data').glob(pattern))
 
 
 @VALIDATORS.register_module()
@@ -62,8 +65,13 @@ class SourceSemanticsValidator(BaseValidator):
 @VALIDATORS.register_module()
 class CanonicalParquetSchemaValidator(BaseValidator):
 
+    def __init__(self, data_pattern: str = DATA_PATTERN) -> None:
+        self.data_pattern = data_pattern
+
     def validate(self, value: Any) -> ValidationReport:
         root = Path(value)
+        info = _json(root / 'meta/info.json')
+        camera_count = len(info['ego2cam_contract']['camera_order'])
         issues: list[ValidationIssue] = []
         try:
             import pyarrow as pa
@@ -73,8 +81,8 @@ class CanonicalParquetSchemaValidator(BaseValidator):
         expected_types = (
             pa.list_(pa.float32(), UNIFIED_DIM),
             pa.list_(pa.bool_(), UNIFIED_DIM),
-            pa.list_(pa.list_(pa.list_(pa.float32(), 4), 4), 3),
-            pa.list_(pa.bool_(), 3),
+            pa.list_(pa.list_(pa.list_(pa.float32(), 4), 4), camera_count),
+            pa.list_(pa.bool_(), camera_count),
             pa.list_(pa.float32(), UNIFIED_DIM),
             pa.list_(pa.bool_(), UNIFIED_DIM),
             pa.int8(),
@@ -84,7 +92,7 @@ class CanonicalParquetSchemaValidator(BaseValidator):
             pa.int64(),
             pa.int64(),
         )
-        files = _parquet_files(root)
+        files = _parquet_files(root, self.data_pattern)
         if not files:
             issues.append(
                 ValidationIssue('missing_parquet',
@@ -133,11 +141,14 @@ class CanonicalParquetSchemaValidator(BaseValidator):
 @VALIDATORS.register_module()
 class UnifiedMaskValidator(BaseValidator):
 
+    def __init__(self, data_pattern: str = DATA_PATTERN) -> None:
+        self.data_pattern = data_pattern
+
     def validate(self, value: Any) -> ValidationReport:
         root = Path(value)
         issues: list[ValidationIssue] = []
         import pyarrow.parquet as pq
-        for path in _parquet_files(root):
+        for path in _parquet_files(root, self.data_pattern):
             table = pq.read_table(path)
             for name in ('observation.unified_128d', 'target.unified_128d'):
                 values = np.asarray(table[name].to_pylist(), dtype=np.float32)
@@ -161,12 +172,16 @@ class UnifiedMaskValidator(BaseValidator):
 @VALIDATORS.register_module()
 class EpisodeIndexValidator(BaseValidator):
 
+    def __init__(self, data_pattern: str = DATA_PATTERN) -> None:
+        self.data_pattern = data_pattern
+
     def validate(self, value: Any) -> ValidationReport:
         root = Path(value)
         issues: list[ValidationIssue] = []
         import pyarrow.parquet as pq
         expected_global = 0
-        for expected_episode, path in enumerate(_parquet_files(root)):
+        for expected_episode, path in enumerate(
+                _parquet_files(root, self.data_pattern)):
             table = pq.read_table(path)
             episodes = np.unique(table['episode_index'].to_numpy())
             if not np.array_equal(episodes, [expected_episode]):
