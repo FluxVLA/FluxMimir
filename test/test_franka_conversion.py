@@ -118,17 +118,17 @@ def test_franka_preflight_rejects_missing_camera():
 def test_franka_target_stays_masked_without_action():
     target = FrankaDualAdapter().map_target(_episode(_source_state(4)))
 
-    assert target['target.unified_107d'].shape == (4, UNIFIED_DIM)
-    assert not target['target.unified_107d'].any()
-    assert not target['target.unified_107d_mask'].any()
+    assert target['target.unified_128d'].shape == (4, UNIFIED_DIM)
+    assert not target['target.unified_128d'].any()
+    assert not target['target.unified_128d_mask'].any()
     assert target['target.source'].tolist() == [5, 5, 5, 5]
 
 
 def test_franka_observation_without_eepose_keeps_pose_masked():
     mapped = FrankaDualAdapter().map_observation(_episode(_source_state(3)))
 
-    assert not mapped['observation.unified_107d'][:, 14:28].any()
-    assert not mapped['observation.unified_107d_mask'][:, 14:28].any()
+    assert not mapped['observation.unified_128d'][:, 14:28].any()
+    assert not mapped['observation.unified_128d_mask'][:, 14:28].any()
 
 
 def test_franka_confirmed_action_maps_to_target():
@@ -136,9 +136,9 @@ def test_franka_confirmed_action_maps_to_target():
     adapter = FrankaDualAdapter(
         action_semantics='issued_joint_position_target')
     target = adapter.map_target(_episode(_source_state(4), action=action))
-    mask = target['target.unified_107d_mask']
+    mask = target['target.unified_128d_mask']
 
-    assert np.array_equal(target['target.unified_107d'], _map_state(action))
+    assert np.array_equal(target['target.unified_128d'], _map_state(action))
     assert np.flatnonzero(mask[0]).tolist() == [*range(0, 14), 28, 29]
     assert np.array_equal(mask, np.tile(mask[0], (4, 1)))
     assert (target['target.source'] == TARGET_SOURCE['operator']).all()
@@ -216,7 +216,7 @@ def test_franka_lerobot_v2_end_to_end(tmp_path):
             embodiment=dict(type='FrankaDualAdapter'),
             stages=[
                 dict(type='ProbeSourceSchema'),
-                dict(type='MapFrankaToCanonical107D'),
+                dict(type='MapFrankaToCanonical128D'),
                 dict(type='EncodeEpisodeVideos', codec='source', mode='copy'),
                 dict(type='ComputeMaskedEpisodeStatistics'),
                 dict(type='BuildCanonicalMetadata'),
@@ -243,9 +243,9 @@ def test_franka_lerobot_v2_end_to_end(tmp_path):
     assert summary['episodes'] == 1
     table = pq.read_table(output / 'data/chunk-000/episode_000000.parquet')
     observation = np.asarray(
-        table['observation.unified_107d'].to_pylist(), dtype=np.float32)
+        table['observation.unified_128d'].to_pylist(), dtype=np.float32)
     mask = np.asarray(
-        table['observation.unified_107d_mask'].to_pylist(), dtype=np.bool_)
+        table['observation.unified_128d_mask'].to_pylist(), dtype=np.bool_)
     assert np.allclose(observation[:, 0:7], state[:, 0:7])
     assert np.allclose(observation[:, 7:14], state[:, 8:15])
     assert np.allclose(observation[:, 28], state[:, 7])
@@ -254,7 +254,7 @@ def test_franka_lerobot_v2_end_to_end(tmp_path):
     assert np.allclose(observation[:, 21:28], eepose[:, 8:15])
     assert mask[:, 0:30].all()
     assert not mask[:, 30:].any()
-    assert not np.asarray(table['target.unified_107d_mask'].to_pylist()).any()
+    assert not np.asarray(table['target.unified_128d_mask'].to_pylist()).any()
     assert table['target.source'].to_pylist() == [5] * 3
     assert len(sorted((output / 'videos').rglob('*.mp4'))) == 3
 

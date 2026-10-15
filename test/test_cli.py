@@ -15,7 +15,7 @@ CASES = (
     (
         convert_main,
         REPO_ROOT / 'configs' / 'conversion' /
-        'agilex_aloha_hdf_to_canonical_107d.py',
+        'agilex_aloha_hdf_to_canonical_128d.py',
         'conversion',
     ),
     (
@@ -31,7 +31,7 @@ CASES = (
     ),
     (
         validate_main,
-        REPO_ROOT / 'configs' / 'validation' / 'canonical_107d.py',
+        REPO_ROOT / 'configs' / 'validation' / 'canonical_128d.py',
         'validation',
     ),
 )

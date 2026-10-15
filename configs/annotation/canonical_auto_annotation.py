@@ -16,7 +16,7 @@ pipeline = dict(
         type='CanonicalDatasetSource',
         root=source_root,
         expected_schema_id='agilex_aloha_unified',
-        expected_schema_version='1.1.0',
+        expected_schema_version='2.0.0',
     ),
     stages=[
         dict(

@@ -16,8 +16,8 @@ repository or a release.
 The initial FluxMimir target contract is:
 
 - schema id: `agilex_aloha_unified`
-- schema version: `1.1.0`
-- canonical layout: `lingbot_vla2_dexhand32x2_107_v1`
+- schema version: `2.0.0`
+- canonical layout: `lingbot_vla2_dexhand32x2_128_v1`
 - LeRobot codebase version: `v2.1`
 - embodiment id: `agilex_aloha`
 - embodiment description: `AgileX ALOHA dual-arm robot`
@@ -72,12 +72,12 @@ Each episode Parquet must contain exactly the following 12 non-null columns:
 
 | Column | Arrow/logical type | Semantics |
 | --- | --- | --- |
-| `observation.unified_107d` | `float32[107]` | canonical robot observation |
-| `observation.unified_107d_mask` | `bool[107]` | per-dimension observation validity |
+| `observation.unified_128d` | `float32[128]` | canonical robot observation |
+| `observation.unified_128d_mask` | `bool[128]` | per-dimension observation validity |
 | `observation.ego2cam` | `float32[3,4,4]` | extrinsics for three cameras |
 | `observation.ego2cam_valid` | `bool[3]` | per-camera extrinsic validity |
-| `target.unified_107d` | `float32[107]` | canonical issued target/action |
-| `target.unified_107d_mask` | `bool[107]` | per-dimension target validity |
+| `target.unified_128d` | `float32[128]` | canonical issued target/action |
+| `target.unified_128d_mask` | `bool[128]` | per-dimension target validity |
 | `target.source` | `int8` | target source enum |
 | `timestamp` | `float32` | monotonic time within the episode, in seconds |
 | `frame_index` | `int64` | contiguous frame number starting at zero |
@@ -93,9 +93,11 @@ Video features are recorded in `meta/info.json`. Their shapes follow the
 LeRobot `[channels, height, width]` convention, for example `[3,480,640]`.
 They are not part of the 12 Parquet columns above.
 
-## 4. Unified 107D layout
+## 4. Unified 128D layout
 
-All ranges use half-open intervals `[start,end)`:
+All ranges use half-open intervals `[start,end)`. The prefix `[0,103)` is
+frozen across releases; the appended leg and base-rotation slots come from
+the Oli source profile:
 
 | Range | Dimensions | Semantics | Convention |
 | --- | ---: | --- | --- |
@@ -107,7 +109,10 @@ All ranges use half-open intervals `[start,end)`:
 | `[94,98)` | 4 | waist positions | names and units are defined by the embodiment adapter |
 | `[98,100)` | 2 | head positions | names and units are defined by the embodiment adapter |
 | `[100,103)` | 3 | mobile-base signals | must remain empty until semantics are confirmed |
-| `[103,107)` | 4 | reserved | must be zero with `mask=false` |
+| `[103,109)` | 6 | left leg joint positions | rad |
+| `[109,115)` | 6 | right leg joint positions | rad |
+| `[115,121)` | 6 | mobile-base rotation | 6D rotation representation |
+| `[121,128)` | 7 | reserved | must be zero with `mask=false` |
 
 For ALOHA, a 14D `qpose` ordered as left six arm joints, left gripper,
 right six arm joints, and right gripper maps as follows:
@@ -139,7 +144,7 @@ raw action is confirmed to be the issued target with matching order and units.
 
 Missing dense tensors use numeric zero placeholders and explicit masks:
 
-- unavailable 107D dimensions use `0.0` with `*_mask=false`.
+- unavailable 128D dimensions use `0.0` with `*_mask=false`.
 - unavailable camera extrinsics use an all-zero 4x4 matrix with
   `ego2cam_valid=false` for that camera.
 - an all-zero extrinsic is not an identity transform; consumers must check
@@ -148,7 +153,7 @@ Missing dense tensors use numeric zero placeholders and explicit masks:
   validity field does.
 - all floating-point values marked valid must be finite.
 
-Statistics must be computed per dimension using masks. Every 107D feature in
+Statistics must be computed per dimension using masks. Every 128D feature in
 `episodes_stats.jsonl` must include at least `min`, `max`, `mean`, `std`,
 `q01`, `q99`, and `count`. Invalid zero placeholders do not contribute, and a
 completely invalid dimension has `count=0`.
@@ -273,17 +278,17 @@ and calibration semantics remain unverified.
 
 ## 10. ReBot dual-arm profile
 
-ReBot B601 dual-arm data uses the same 12 Parquet columns and 107D slot ranges,
+ReBot B601 dual-arm data uses the same 12 Parquet columns and 128D slot ranges,
 but its gripper slots represent motor angles rather than metric opening
 positions. It therefore uses a distinct data-contract identity:
 
 - schema id: `rebot_dual_unified`
-- schema version: `1.0.0`
-- layout id: `rebot_dual_107_v1`
+- schema version: `2.0.0`
+- layout id: `rebot_dual_128_v1`
 - embodiment id: `rebot_b601_dual`
 - gripper slots `[28,30)` unit: `rad`
 - target source: `operator`
 
 See [`conversion.md`](conversion.md) for the mapping and confirmed target
 provenance. Consumers that support only `agilex_aloha_unified` must reject the
-ReBot profile; sharing 107 dimensions does not imply unit compatibility.
+ReBot profile; sharing 128 dimensions does not imply unit compatibility.

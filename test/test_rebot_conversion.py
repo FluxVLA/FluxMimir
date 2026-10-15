@@ -102,7 +102,7 @@ def test_rebot_lerobot_v3_to_canonical_end_to_end(tmp_path):
             embodiment=dict(type='ReBotDualAdapter'),
             stages=[
                 dict(type='ProbeSourceSchema'),
-                dict(type='MapReBotToCanonical107D'),
+                dict(type='MapReBotToCanonical128D'),
                 dict(type='EncodeEpisodeVideos', codec='source', mode='copy'),
                 dict(type='ComputeMaskedEpisodeStatistics'),
                 dict(type='BuildCanonicalMetadata'),
@@ -129,9 +129,9 @@ def test_rebot_lerobot_v3_to_canonical_end_to_end(tmp_path):
     assert summary['episodes'] == 1
     table = pq.read_table(output / 'data/chunk-000/episode_000000.parquet')
     observation = np.asarray(
-        table['observation.unified_107d'].to_pylist(), dtype=np.float32)
+        table['observation.unified_128d'].to_pylist(), dtype=np.float32)
     target = np.asarray(
-        table['target.unified_107d'].to_pylist(), dtype=np.float32)
+        table['target.unified_128d'].to_pylist(), dtype=np.float32)
     assert np.allclose(observation[:, :6], state[:, :6])
     assert np.allclose(observation[:, 28], state[:, 6])
     assert np.allclose(target[:, :6], action[:, :6])

@@ -1,13 +1,13 @@
 # Canonical Dataset Conversion Plan
 
-> Status: the HDF-to-canonical 107D path is implemented. This document keeps
+> Status: the HDF-to-canonical 128D path is implemented. This document keeps
 > the design, audit findings, and unresolved training-readiness blockers
 > together. Implementing conversion does not confirm raw-data semantics.
 
 ## 1. Goals and boundaries
 
 The converter transforms acquisition-side HDF episodes into the
-[`agilex_aloha_unified@1.1.0`](data_contract.md) dataset while preserving
+[`agilex_aloha_unified@2.0.0`](data_contract.md) dataset while preserving
 traceability and representing missing information explicitly.
 
 Core boundaries:
@@ -94,7 +94,7 @@ private monkey patches or inheriting their data semantics.
 
 | Problem | Impact |
 | --- | --- |
-| Emits `observation.state/action/eepose` | Does not satisfy the 12-column canonical 107D schema |
+| Emits `observation.state/action/eepose` | Does not satisfy the 12-column canonical 128D schema |
 | Infers action/eepose/depth from the first HDF | Misinterprets mixed-schema datasets |
 | Loads all RGB/depth for a dataset into memory | Risks OOM on large episodes and prevents stable concurrency |
 | Looks for `{camera}_depth` | Does not match sampled raw keys |
@@ -180,7 +180,7 @@ Output: an `EpisodeRecord` stream with explicit physical semantics.
 ### Stage 4: Embodiment normalization
 
 The `agilex_aloha` adapter verifies left/right order, joint and gripper units,
-camera order, and action alignment before mapping into 107D:
+camera order, and action alignment before mapping into 128D:
 
 - Write confirmed qpos dimensions to observations and set their masks true.
 - Write eepose only when supplied by raw data or correctly computed by a
@@ -189,7 +189,7 @@ camera order, and action alignment before mapping into 107D:
   units are confirmed.
 - Do not map `/base_action` into `[100,103)` merely because its shape appears
   compatible.
-- Do not add qvel, effort, or depth columns undefined by v1.1.0. Record them as
+- Do not add qvel, effort, or depth columns undefined by v2.0.0. Record them as
   ignored with a reason, or introduce them through a future versioned schema.
 
 Output: canonical values, masks, and mapping provenance.
@@ -245,7 +245,7 @@ Output: a complete but not yet promoted release candidate.
 Validators reopen files from disk and verify:
 
 - exactly 12 Parquet columns with fixed shapes/dtypes and no null, NaN, or Inf
-- 107D padding, masks, and target-source consistency
+- 128D padding, masks, and target-source consistency
 - contiguous frame/episode/global indices and monotonic timestamps
 - agreement among Parquet rows, metadata lengths, and video frame counts
 - task/subtask/episode foreign-key closure
@@ -324,7 +324,7 @@ implementation must not remove them by guessing values.
 ## 9. Current implementation scope
 
 The current implementation provides deterministic discovery, per-file schema
-fingerprints, qpos/optional-eepose mapping into 107D, explicit masks,
+fingerprints, qpos/optional-eepose mapping into 128D, explicit masks,
 synthetic-timestamp provenance, strict 12-column Parquet, optional streaming
 video encoding, per-episode statistics, metadata, manifest, resume, and
 on-disk validation. A real 258-frame episode verified lossless qpos
@@ -345,9 +345,10 @@ writer owns no root, such as `fluxmimir-validate`.
 
 ## 10. ReBot dual LeRobot v3 conversion
 
-`rebot_dual_unified@1.0.0` converts ReBot B601 dual-arm LeRobot v3 data into
-canonical 107D. It has a distinct schema/layout because gripper values are
-motor angles in radians rather than ALOHA opening positions in metres.
+`rebot_dual_unified@2.0.0` (layout `rebot_dual_128_v1`) converts ReBot B601
+dual-arm LeRobot v3 data into canonical 128D. It has a distinct schema/layout
+because gripper values are motor angles in radians rather than ALOHA opening
+positions in metres.
 
 Confirmed source semantics:
 
@@ -379,7 +380,7 @@ Convert one episode first:
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/rebot_dual_lerobot_v3_to_canonical_107d.py \
+  configs/conversion/rebot_dual_lerobot_v3_to_canonical_128d.py \
   --execute \
   --cfg-options \
   pipeline.source.max_episodes=1 \
@@ -396,7 +397,7 @@ action semantics are not a blocker.
 
 `LeRobotV2Source` converts LeRobot v2.0/v2.1 ALOHA datasets
 (`data/chunk-*/episode_*.parquet` plus
-`videos/chunk-*/<video_key>/episode_*.mp4`) into `agilex_aloha_unified@1.1.0`.
+`videos/chunk-*/<video_key>/episode_*.mp4`) into `agilex_aloha_unified@2.0.0`.
 
 Confirmed source semantics:
 
@@ -420,7 +421,7 @@ against Parquet rows. Convert one episode first:
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_lerobot_v2_to_canonical_107d.py \
+  configs/conversion/agilex_aloha_lerobot_v2_to_canonical_128d.py \
   --execute \
   --cfg-options \
   pipeline.source.max_episodes=1 \
@@ -459,9 +460,9 @@ absent from the canonical layout, or when it runs after
 
 ## 13. franka_dual conversion
 
-`franka_dual_unified@1.0.0` converts dual Franka Panda LeRobot v2.1 data into
-canonical 107D. It has a distinct schema/layout because each arm exposes seven
-joints plus one gripper opening.
+`franka_dual_unified@2.0.0` (layout `franka_dual_128_v1`) converts dual Franka
+Panda LeRobot v2.1 data into canonical 128D. It has a distinct schema/layout
+because each arm exposes seven joints plus one gripper opening.
 
 Confirmed source semantics:
 
@@ -498,7 +499,7 @@ are copied without transcoding. Convert one episode first:
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/franka_dual_lerobot_v2_to_canonical_107d.py \
+  configs/conversion/franka_dual_lerobot_v2_to_canonical_128d.py \
   --execute \
   --cfg-options \
   pipeline.source.max_episodes=1 \
@@ -507,6 +508,6 @@ fluxmimir-convert \
 
 Override input and output paths through `FLUXMIMIR_RAW_ROOT` and
 `FLUXMIMIR_OUTPUT_ROOT`; the default release root is
-`work_dirs/datasets/franka_dual_107d`. The release stays `training_ready=false`
+`work_dirs/datasets/franka_dual_128d`. The release stays `training_ready=false`
 because the export has no action provenance, no calibrated ego2cam, no hardware
 timestamps, and no frame-level subtasks. `FilterStaticFrames` ships disabled.

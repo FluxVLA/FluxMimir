@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from fluxmimir.engines.utils import VALIDATORS
-from fluxmimir.schemas import PARQUET_COLUMNS
+from fluxmimir.schemas import PARQUET_COLUMNS, UNIFIED_DIM
 from fluxmimir.structures import (IssueSeverity, ValidationIssue,
                                   ValidationReport)
 
@@ -71,12 +71,12 @@ class CanonicalParquetSchemaValidator(BaseValidator):
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError('validation requires pyarrow') from exc
         expected_types = (
-            pa.list_(pa.float32(), 107),
-            pa.list_(pa.bool_(), 107),
+            pa.list_(pa.float32(), UNIFIED_DIM),
+            pa.list_(pa.bool_(), UNIFIED_DIM),
             pa.list_(pa.list_(pa.list_(pa.float32(), 4), 4), 3),
             pa.list_(pa.bool_(), 3),
-            pa.list_(pa.float32(), 107),
-            pa.list_(pa.bool_(), 107),
+            pa.list_(pa.float32(), UNIFIED_DIM),
+            pa.list_(pa.bool_(), UNIFIED_DIM),
             pa.int8(),
             pa.float32(),
             pa.int64(),
@@ -139,7 +139,7 @@ class UnifiedMaskValidator(BaseValidator):
         import pyarrow.parquet as pq
         for path in _parquet_files(root):
             table = pq.read_table(path)
-            for name in ('observation.unified_107d', 'target.unified_107d'):
+            for name in ('observation.unified_128d', 'target.unified_128d'):
                 values = np.asarray(table[name].to_pylist(), dtype=np.float32)
                 mask = np.asarray(
                     table[f'{name}_mask'].to_pylist(), dtype=np.bool_)
@@ -263,7 +263,7 @@ class MaskedStatisticsValidator(BaseValidator):
                     'stats_count', 'episode statistics count mismatch'), ))
         for record, path in zip(records, files):
             table = pq.read_table(path)
-            for name in ('observation.unified_107d', 'target.unified_107d'):
+            for name in ('observation.unified_128d', 'target.unified_128d'):
                 mask = np.asarray(
                     table[f'{name}_mask'].to_pylist(), dtype=np.bool_)
                 actual = mask.sum(axis=0).tolist()

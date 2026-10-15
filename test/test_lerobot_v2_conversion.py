@@ -129,7 +129,7 @@ def _run_conversion(tmp_path, raw, output):
             embodiment=dict(type='AgileXAlohaAdapter'),
             stages=[
                 dict(type='ProbeSourceSchema'),
-                dict(type='MapAlohaToCanonical107D'),
+                dict(type='MapAlohaToCanonical128D'),
                 dict(type='EncodeEpisodeVideos', codec='source', mode='copy'),
                 dict(type='ComputeMaskedEpisodeStatistics'),
                 dict(type='BuildCanonicalMetadata'),
@@ -166,16 +166,16 @@ def test_lerobot_v2_to_canonical_end_to_end(tmp_path):
     assert summary['episodes'] == 1
     table = pq.read_table(output / 'data/chunk-000/episode_000000.parquet')
     observation = np.asarray(
-        table['observation.unified_107d'].to_pylist(), dtype=np.float32)
+        table['observation.unified_128d'].to_pylist(), dtype=np.float32)
     mask = np.asarray(
-        table['observation.unified_107d_mask'].to_pylist(), dtype=np.bool_)
+        table['observation.unified_128d_mask'].to_pylist(), dtype=np.bool_)
     assert np.allclose(observation[:, :6], state[:, :6])
     assert np.allclose(observation[:, 7:13], state[:, 7:13])
     assert np.allclose(observation[:, 28], state[:, 6])
     assert np.allclose(observation[:, 29], state[:, 13])
     assert np.allclose(observation[:, 14:28], eepose)
     assert mask[:, 14:28].all()
-    assert not np.asarray(table['target.unified_107d_mask'].to_pylist()).any()
+    assert not np.asarray(table['target.unified_128d_mask'].to_pylist()).any()
     assert table['target.source'].to_pylist() == [5] * 4
     output_videos = sorted((output / 'videos').rglob('*.mp4'))
     assert len(output_videos) == 3
@@ -208,6 +208,6 @@ def test_lerobot_v2_mixed_frame_labels_use_an_unavailable_task(tmp_path):
     assert tasks[episode['task_index']] == 'unknown episode-level task'
     table = pq.read_table(output / 'data/chunk-000/episode_000000.parquet')
     mask = np.asarray(
-        table['observation.unified_107d_mask'].to_pylist(), dtype=np.bool_)
+        table['observation.unified_128d_mask'].to_pylist(), dtype=np.bool_)
     assert table.num_rows == 4
     assert not mask[:, 14:28].any()

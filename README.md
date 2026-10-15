@@ -6,7 +6,7 @@ ego-to-robot visual data, and produce auditable automated annotations for
 FluxVLA.
 
 > **Current status:** AgileX ALOHA HDF and ReBot dual LeRobot v3 conversions to
-> versioned canonical 107D Parquet profiles are executable, including MP4
+> versioned canonical 128D Parquet profiles are executable, including MP4
 > materialization, metadata, masked statistics, manifests, and release
 > validation. Synthesis and annotation backends remain scaffolded.
 
@@ -15,9 +15,9 @@ FluxVLA.
 ## Scope
 
 - Convert raw AgileX ALOHA HDF episodes into the fixed
-  `agilex_aloha_unified@1.1.0` 107D Parquet/video/metadata contract.
+  `agilex_aloha_unified@2.0.0` 128D Parquet/video/metadata contract.
 - Convert ReBot dual LeRobot v3 episodes into
-  `rebot_dual_unified@1.0.0`, preserving radian gripper angles and command
+  `rebot_dual_unified@2.0.0`, preserving radian gripper angles and command
   target provenance.
 - Build the Qwen-RobotManip-style ego-to-robot pipeline through replaceable
   retargeting, segmentation, inpainting, kinematics/rendering, depth, and
@@ -81,7 +81,7 @@ Run these commands from the repository root after activating the environment:
 python --version
 python -c "import fluxmimir; print(fluxmimir.__version__)"
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_hdf_to_canonical_107d.py --dry-run
+  configs/conversion/agilex_aloha_hdf_to_canonical_128d.py --dry-run
 pytest -q
 ```
 
@@ -94,12 +94,12 @@ Inspect the supplied plans without touching data or resolving credentials:
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_hdf_to_canonical_107d.py --dry-run
+  configs/conversion/agilex_aloha_hdf_to_canonical_128d.py --dry-run
 fluxmimir-synthesize \
   configs/synthesis/qwen_robotmanip_ego_to_robot.py --dry-run
 fluxmimir-annotate \
   configs/annotation/canonical_auto_annotation.py --dry-run
-fluxmimir-validate configs/validation/canonical_107d.py --dry-run
+fluxmimir-validate configs/validation/canonical_128d.py --dry-run
 ```
 
 Conversion requires an explicit `--execute` guard. Start with one episode (the
@@ -107,7 +107,7 @@ configured raw root contains tens of thousands of very large HDF files):
 
 ```bash
 fluxmimir-convert \
-  configs/conversion/agilex_aloha_hdf_to_canonical_107d.py \
+  configs/conversion/agilex_aloha_hdf_to_canonical_128d.py \
   --execute \
   --cfg-options \
   pipeline.source.max_episodes=1 \
@@ -139,7 +139,7 @@ work_dirs/     ignored run artifacts
 ## Documentation
 
 - [Architecture and ownership](docs/architecture.md)
-- [Canonical 107D data contract](docs/data_contract.md)
+- [Canonical 128D data contract](docs/data_contract.md)
 - [Data conversion plan and audit](docs/conversion.md)
 - [Ego-to-robot synthesis plan](docs/synthesis.md)
 - [Automated annotation plan](docs/annotation.md)

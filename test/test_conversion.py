@@ -1,8 +1,11 @@
+import json
+
 import numpy as np
 import pytest
 
 from fluxmimir.conversion import BaseEpisodeMapper, EpisodeRecord
 from fluxmimir.engines import build_runner_from_cfg
+from fluxmimir.schemas import UNIFIED_DIM
 from fluxmimir.structures import EpisodeRef, PipelineContext
 
 
@@ -59,7 +62,7 @@ def test_hdf_to_canonical_parquet_end_to_end(tmp_path):
                 type='AgileXAlohaAdapter', action_semantics='unknown'),
             stages=[
                 dict(type='ProbeSourceSchema'),
-                dict(type='MapAlohaToCanonical107D'),
+                dict(type='MapAlohaToCanonical128D'),
                 dict(type='EncodeEpisodeVideos', enabled=True, codec='h264'),
                 dict(type='ComputeMaskedEpisodeStatistics'),
                 dict(type='BuildCanonicalMetadata'),
@@ -87,17 +90,23 @@ def test_hdf_to_canonical_parquet_end_to_end(tmp_path):
     table = pq.read_table(output / 'data/chunk-000/episode_000000.parquet')
     assert table.num_rows == 3
     observation = np.asarray(
-        table['observation.unified_107d'].to_pylist(), dtype=np.float32)
-    mask = np.asarray(table['observation.unified_107d_mask'].to_pylist())
-    target_mask = np.asarray(table['target.unified_107d_mask'].to_pylist())
+        table['observation.unified_128d'].to_pylist(), dtype=np.float32)
+    mask = np.asarray(table['observation.unified_128d_mask'].to_pylist())
+    target_mask = np.asarray(table['target.unified_128d_mask'].to_pylist())
+    assert observation.shape == (3, UNIFIED_DIM)
     assert np.allclose(observation[:, :6], qpos[:, :6])
     assert np.allclose(observation[:, 7:13], qpos[:, 7:13])
     assert np.allclose(observation[:, 28], qpos[:, 6])
     assert np.allclose(observation[:, 29], qpos[:, 13])
     assert mask[:, :6].all() and mask[:, 7:13].all()
     assert mask[:, 28:30].all() and not mask[:, 14:28].any()
+    assert not observation[:, 103:].any() and not mask[:, 103:].any()
     assert not target_mask.any()
     assert table['target.source'].to_pylist() == [5, 5, 5]
     assert (output / 'meta/info.json').is_file()
+    info = json.loads((output / 'meta/info.json').read_text(encoding='utf-8'))
+    observation_feature = info['features']['observation.unified_128d']
+    assert observation_feature['shape'] == [UNIFIED_DIM]
+    assert info['unified_layout']['dimension'] == UNIFIED_DIM
     assert (output / 'meta/artifacts.sha256.json').is_file()
     assert len(list((output / 'videos').rglob('*.mp4'))) == 3

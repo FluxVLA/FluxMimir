@@ -52,7 +52,7 @@ def _joint_state_mask(length: int) -> np.ndarray:
 
 @EMBODIMENTS.register_module()
 class ReBotDualAdapter(BaseEmbodimentAdapter):
-    """Map ReBot feedback and ROS command targets into canonical 107D.
+    """Map ReBot feedback and ROS command targets into canonical 128D.
 
     The gripper values are motor angles in radians. Targets are the raw values
     observed on the two ``target_joint_state`` topics, before any follower
@@ -72,7 +72,7 @@ class ReBotDualAdapter(BaseEmbodimentAdapter):
     qpose_reconstruction = ('unified[0:6] + unified[28] + '
                             'unified[7:13] + unified[29]')
     source_format = 'LeRobot v3 Parquet and MP4'
-    conversion_description = 'LeRobot v3 to ReBot canonical unified 107D'
+    conversion_description = 'LeRobot v3 to ReBot canonical unified 128D'
     video_materialization = 'copied_source_mp4'
     training_readiness_blockers = (
         'calibrated ego2cam is unavailable',
@@ -173,9 +173,9 @@ class ReBotDualAdapter(BaseEmbodimentAdapter):
         values = np.asarray(
             episode.fields['observations/qpos'], dtype=np.float32)
         return {
-            'observation.unified_107d':
+            'observation.unified_128d':
             _map_joint_state(values),
-            'observation.unified_107d_mask':
+            'observation.unified_128d_mask':
             _joint_state_mask(episode.length),
             'observation.ego2cam':
             np.full((episode.length, len(self.camera_order), 4, 4),
@@ -188,9 +188,9 @@ class ReBotDualAdapter(BaseEmbodimentAdapter):
     def map_target(self, episode: EpisodeRecord) -> Mapping[str, Any]:
         action = np.asarray(episode.fields['action'], dtype=np.float32)
         return {
-            'target.unified_107d':
+            'target.unified_128d':
             _map_joint_state(action),
-            'target.unified_107d_mask':
+            'target.unified_128d_mask':
             _joint_state_mask(episode.length),
             'target.source':
             np.full(
